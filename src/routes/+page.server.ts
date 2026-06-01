@@ -17,7 +17,9 @@ export const actions: Actions = {
 			apiFormData.append('file', file);
 
 			// Reemplaza esto con tu URL de Cloud Run (ej: https://drivecrud-...)
-			const URL_API_CLOUD_RUN = 'https://drivecrud-269414280318.europe-west1.run.app';
+			// Cambia esto en tu +page.server.ts:
+			const URL_API_CLOUD_RUN =
+				'https://drivecrud-269414280318.europe-west1.run.app/api/upload-pdf';
 
 			// Enviamos el binario de servidor a servidor
 			const response = await fetch(URL_API_CLOUD_RUN, {
