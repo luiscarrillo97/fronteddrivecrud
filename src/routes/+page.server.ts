@@ -22,15 +22,18 @@ export const actions: Actions = {
 			// Enviamos el binario de servidor a servidor
 			const response = await fetch(URL_API_CLOUD_RUN, {
 				method: 'POST',
-				body: apiFormData
-				// Nota: No se agrega Header de Content-Type manual, el fetch lo asigna con el boundary del archivo de forma automática
+				body: formData
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				return fail(response.status, {
-					error: errorData.message || 'Error en la respuesta de la API de Cloud Run.'
-				});
+				// Leemos el texto del error que manda el backend
+				const errorText = await response.text();
+				console.error('Error detallado del backend:', errorText);
+
+				return {
+					success: false,
+					error: `Error de la API (${response.status}): ${errorText}`
+				};
 			}
 
 			const result = await response.json();
