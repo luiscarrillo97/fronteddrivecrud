@@ -17,7 +17,7 @@ export const actions: Actions = {
 			apiFormData.append('file', file);
 
 			// Reemplaza esto con tu URL de Cloud Run (ej: https://drivecrud-...)
-			const URL_API_CLOUD_RUN = 'https://TU-URL-DE-CLOUD-RUN.run.app/api/upload-pdf';
+			const URL_API_CLOUD_RUN = 'https://drivecrud-269414280318.europe-west1.run.app';
 
 			// Enviamos el binario de servidor a servidor
 			const response = await fetch(URL_API_CLOUD_RUN, {
@@ -40,8 +40,14 @@ export const actions: Actions = {
 				success: true,
 				link: result.link // Link público del archivo devuelto por .NET
 			};
-		} catch (err: unknown) {
-			return fail(500, { error: `No se pudo conectar con el servidor API: ${err.message}` });
+		} catch (error: unknown) {
+			// Verificamos si el error tiene un mensaje de texto seguro
+			const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+			return {
+				success: false,
+				error: errorMessage
+			};
 		}
 	}
 };
