@@ -1,33 +1,55 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-
-	// En Svelte 5 usamos la rune $props() para cachar los datos que vienen del servidor
-	let { data }: { data: PageData } = $props();
+	// Recibimos la respuesta del servidor (form) usando la nueva sintaxis de Svelte 5
+	let { form } = $props<{
+		form: {
+			success?: boolean;
+			link?: string;
+			error?: string;
+		} | null;
+	}>();
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
-	<div
-		class="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-950 p-8 text-center shadow-2xl"
-	>
-		<h1
-			class="mb-2 bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent"
-		>
-			¡API Conectada!
-		</h1>
+<main class="mx-auto mt-10 max-w-md rounded-lg bg-white p-6 shadow">
+	<h2 class="mb-4 text-xl font-bold">Subir Documento PDF a Drive</h2>
 
-		<p
-			class="my-6 inline-block rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xl font-medium text-emerald-400"
-		>
-			{data.mensajeBackend}
-		</p>
-
-		<div class="mt-2 block">
-			<div
-				class="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-1.5 text-xs font-medium text-orange-400"
-			>
-				<span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
-				SvelteKit 5 + .NET 10 API
-			</div>
+	<form method="POST" enctype="multipart/form-data" class="space-y-4">
+		<div>
+			<label for="pdfFile" class="mb-2 block text-sm font-medium text-gray-700">
+				Selecciona tu archivo PDF:
+			</label>
+			<input
+				type="file"
+				id="pdfFile"
+				name="pdfFile"
+				accept=".pdf"
+				required
+				class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+			/>
 		</div>
-	</div>
+
+		<button
+			type="submit"
+			class="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
+		>
+			Subir a Drive
+		</button>
+	</form>
+
+	{#if form}
+		{#if form.success}
+			<div class="mt-4 rounded bg-green-100 p-3 text-green-800">
+				¡Archivo subido con éxito!
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+				<a href={form.link} target="_blank" class="mt-1 block font-bold text-green-900 underline">
+					Ver en Google Drive
+				</a>
+			</div>
+		{/if}
+
+		{#if form.error}
+			<div class="mt-4 rounded bg-red-100 p-3 text-red-800">
+				Error: {form.error}
+			</div>
+		{/if}
+	{/if}
 </main>
