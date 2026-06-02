@@ -16,8 +16,7 @@ export const actions: Actions = {
 			const apiFormData = new FormData();
 			apiFormData.append('pdfFile', file); // Corregido: 'file' cambiado a 'pdfFile'
 
-			const URL_API_CLOUD_RUN =
-				'https://drivecrud-269414280318.europe-west1.run.app/api/upload-pdf';
+			const URL_API_CLOUD_RUN = 'https://drivecrud-269414280318.europe-west1.run.app/upload';
 
 			// 2. Enviamos el binario correcto (apiFormData) de servidor a servidor
 			const response = await fetch(URL_API_CLOUD_RUN, {
