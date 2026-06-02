@@ -1,42 +1,57 @@
 import type { Actions } from './$types';
 import { fail } from '@sveltejs/kit';
 
+const API_URL = 'https://drivecrud-269414280318.europe-west1.run.app';
+
 export const actions: Actions = {
 	default: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const file = formData.get('pdfFile') as File;
 
-		// Validación rápida en el servidor de SvelteKit
-		if (!file || file.size === 0) {
-			return fail(400, { error: 'No se cargó ningún archivo válido.' });
+		const file = formData.get('file');
+
+		if (!(file instanceof File)) {
+			return fail(400, {
+				success: false,
+				error: 'Debe seleccionar un archivo PDF.'
+			});
+		}
+
+		if (file.size === 0) {
+			return fail(400, {
+				success: false,
+				error: 'El archivo está vacío.'
+			});
+		}
+
+		if (!file.name.toLowerCase().endsWith('.pdf')) {
+			return fail(400, {
+				success: false,
+				error: 'Solo se permiten archivos PDF.'
+			});
 		}
 
 		try {
-			// 1. Preparamos el payload con la clave exacta que espera .NET Core ("pdfFile")
 			const apiFormData = new FormData();
-			apiFormData.append('pdfFile', file); // Corregido: 'file' cambiado a 'pdfFile'
 
-			const URL_API_CLOUD_RUN = 'https://drivecrud-269414280318.europe-west1.run.app/upload';
+			// IMPORTANTE:
+			// Debe llamarse "file" porque así lo espera tu API .NET
+			apiFormData.append('file', file);
 
-			// 2. Enviamos el binario correcto (apiFormData) de servidor a servidor
-			const response = await fetch(URL_API_CLOUD_RUN, {
+			const response = await fetch(`${API_URL}/upload`, {
 				method: 'POST',
-				body: apiFormData // Corregido: Enviamos el contenedor con la clave mapeada
+				body: apiFormData
 			});
 
 			if (!response.ok) {
-				let errorMessage = `Error de la API (${response.status})`;
-				try {
-					// Si el backend responde con un RFC 7807 (ProblemDetails), leemos el "detail" o el "error"
-					const errorJson = await response.json();
-					errorMessage = errorJson.detail || errorJson.error || errorMessage;
-				} catch {
-					// Si no es un JSON, caemos en leer el texto plano
-					const errorText = await response.text();
-					if (errorText) errorMessage = errorText;
-				}
+				let errorMessage = `Error ${response.status}`;
 
-				console.error('Error detallado del backend:', errorMessage);
+				try {
+					const errorJson = await response.json();
+
+					errorMessage = errorJson.error || errorJson.detail || errorMessage;
+				} catch {
+					// ignorar
+				}
 
 				return fail(response.status, {
 					success: false,
@@ -46,18 +61,18 @@ export const actions: Actions = {
 
 			const result = await response.json();
 
-			// 3. Retornamos los datos al componente +page.svelte de manera limpia
 			return {
 				success: true,
-				link: result.link // Link público devuelto por la API de .NET
+				fileId: result.fileId,
+				fileName: result.fileName,
+				link: result.link,
+				size: result.size,
+				createdAt: result.createdAt
 			};
-		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : 'Error desconocido de conexión';
-			console.error('Error de conexión con Cloud Run:', errorMessage);
-
+		} catch (error) {
 			return fail(500, {
 				success: false,
-				error: `No se pudo conectar con el servidor de subidas: ${errorMessage}`
+				error: error instanceof Error ? error.message : 'Error de conexión'
 			});
 		}
 	}

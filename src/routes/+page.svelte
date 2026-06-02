@@ -1,55 +1,67 @@
 <script lang="ts">
-	// Recibimos la respuesta del servidor (form) usando la nueva sintaxis de Svelte 5
 	let { form } = $props<{
 		form: {
 			success?: boolean;
-			link?: string;
 			error?: string;
+			fileId?: string;
+			fileName?: string;
+			link?: string;
+			size?: number;
+			createdAt?: string;
 		} | null;
 	}>();
 </script>
 
-<main class="mx-auto mt-10 max-w-md rounded-lg bg-white p-6 shadow">
-	<h2 class="mb-4 text-xl font-bold">Subir Documento PDF a Drive</h2>
+<main class="mx-auto mt-10 max-w-lg rounded-lg bg-white p-6 shadow">
+	<h1 class="mb-6 text-2xl font-bold">Subir PDF a Google Drive</h1>
 
-	<form method="POST" enctype="multipart/form-data" class="space-y-4">
-		<div>
-			<label for="pdfFile" class="mb-2 block text-sm font-medium text-gray-700">
-				Selecciona tu archivo PDF:
-			</label>
+	<form method="POST" enctype="multipart/form-data">
+		<div class="mb-4">
+			<label for="file" class="mb-2 block text-sm font-medium"> Seleccione un PDF </label>
+
 			<input
+				id="file"
+				name="file"
 				type="file"
-				id="pdfFile"
-				name="pdfFile"
 				accept=".pdf"
 				required
-				class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+				class="block w-full rounded border p-2"
 			/>
 		</div>
 
-		<button
-			type="submit"
-			class="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
-		>
-			Subir a Drive
+		<button type="submit" class="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+			Subir archivo
 		</button>
 	</form>
 
-	{#if form}
-		{#if form.success}
-			<div class="mt-4 rounded bg-green-100 p-3 text-green-800">
-				¡Archivo subido con éxito!
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={form.link} target="_blank" class="mt-1 block font-bold text-green-900 underline">
-					Ver en Google Drive
-				</a>
-			</div>
-		{/if}
+	{#if form?.success}
+		<div class="mt-6 rounded bg-green-100 p-4 text-green-800">
+			<p class="font-bold">Archivo subido correctamente</p>
 
-		{#if form.error}
-			<div class="mt-4 rounded bg-red-100 p-3 text-red-800">
-				Error: {form.error}
-			</div>
-		{/if}
+			<p class="mt-2">
+				<strong>Nombre:</strong>
+				{form.fileName}
+			</p>
+
+			<p>
+				<strong>ID:</strong>
+				{form.fileId}
+			</p>
+
+			<p>
+				<strong>Tamaño:</strong>
+				{form.size} bytes
+			</p>
+
+			<a href={form.link} target="_blank" rel="noopener noreferrer" class="mt-3 block underline">
+				Abrir en Google Drive
+			</a>
+		</div>
+	{/if}
+
+	{#if form?.error}
+		<div class="mt-6 rounded bg-red-100 p-4 text-red-800">
+			{form.error}
+		</div>
 	{/if}
 </main>
