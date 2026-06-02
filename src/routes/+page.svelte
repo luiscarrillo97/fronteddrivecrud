@@ -7,7 +7,7 @@
 			files: {
 				id: string;
 				nombre: string;
-				tamaño: number | null;
+				tamano: number | null;
 				fecha: string | null;
 				link: string;
 			}[];
@@ -180,7 +180,7 @@
 
 									<!-- Tamaño -->
 									<td class="px-6 py-4 text-slate-500">
-										{formatSize(file.tamaño)}
+										{formatSize(file.tamano)}
 									</td>
 
 									<!-- Fecha -->
