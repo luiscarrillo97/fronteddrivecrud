@@ -6,53 +6,60 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const file = formData.get('pdfFile') as File;
 
-		// Validación rápida en servidor frontend
+		// Validación rápida en el servidor de SvelteKit
 		if (!file || file.size === 0) {
 			return fail(400, { error: 'No se cargó ningún archivo válido.' });
 		}
 
 		try {
-			// Preparamos el payload exacto que espera tu endpoint de .NET Core (IFormFile)
+			// 1. Preparamos el payload con la clave exacta que espera .NET Core ("pdfFile")
 			const apiFormData = new FormData();
-			apiFormData.append('file', file);
+			apiFormData.append('pdfFile', file); // Corregido: 'file' cambiado a 'pdfFile'
 
-			// Reemplaza esto con tu URL de Cloud Run (ej: https://drivecrud-...)
-			// Cambia esto en tu +page.server.ts:
 			const URL_API_CLOUD_RUN =
 				'https://drivecrud-269414280318.europe-west1.run.app/api/upload-pdf';
 
-			// Enviamos el binario de servidor a servidor
+			// 2. Enviamos el binario correcto (apiFormData) de servidor a servidor
 			const response = await fetch(URL_API_CLOUD_RUN, {
 				method: 'POST',
-				body: formData
+				body: apiFormData // Corregido: Enviamos el contenedor con la clave mapeada
 			});
 
 			if (!response.ok) {
-				// Leemos el texto del error que manda el backend
-				const errorText = await response.text();
-				console.error('Error detallado del backend:', errorText);
+				let errorMessage = `Error de la API (${response.status})`;
+				try {
+					// Si el backend responde con un RFC 7807 (ProblemDetails), leemos el "detail" o el "error"
+					const errorJson = await response.json();
+					errorMessage = errorJson.detail || errorJson.error || errorMessage;
+				} catch {
+					// Si no es un JSON, caemos en leer el texto plano
+					const errorText = await response.text();
+					if (errorText) errorMessage = errorText;
+				}
 
-				return {
+				console.error('Error detallado del backend:', errorMessage);
+
+				return fail(response.status, {
 					success: false,
-					error: `Error de la API (${response.status}): ${errorText}`
-				};
+					error: errorMessage
+				});
 			}
 
 			const result = await response.json();
 
-			// Retornamos los datos al componente .svelte de manera limpia
+			// 3. Retornamos los datos al componente +page.svelte de manera limpia
 			return {
 				success: true,
-				link: result.link // Link público del archivo devuelto por .NET
+				link: result.link // Link público devuelto por la API de .NET
 			};
 		} catch (error: unknown) {
-			// Verificamos si el error tiene un mensaje de texto seguro
-			const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+			const errorMessage = error instanceof Error ? error.message : 'Error desconocido de conexión';
+			console.error('Error de conexión con Cloud Run:', errorMessage);
 
-			return {
+			return fail(500, {
 				success: false,
-				error: errorMessage
-			};
+				error: `No se pudo conectar con el servidor de subidas: ${errorMessage}`
+			});
 		}
 	}
 };
