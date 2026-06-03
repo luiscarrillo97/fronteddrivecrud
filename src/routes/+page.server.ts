@@ -80,44 +80,20 @@ export const actions: Actions = {
 	// VER PDF — proxy seguro, el usuario nunca ve el ID ni
 	// el link de Drive. El PDF llega como base64 al frontend.
 	// ======================================================
-	view: async ({ request, fetch }) => {
+	// ======================================================
+	// VER PDF — ahora solo valida el ID y lo devuelve
+	// El streaming real lo hace /api/pdf/[id]/+server.ts
+	// ======================================================
+	view: async ({ request }) => {
 		const formData = await request.formData();
 		const id = formData.get('id');
 
 		if (typeof id !== 'string' || !id)
 			return fail(400, { action: 'view', success: false, error: 'ID requerido.' });
 
-		try {
-			const response = await fetch(`${API_URL}/files/${id}/stream`);
-
-			if (!response.ok) {
-				let msg = `Error ${response.status}`;
-				try {
-					const j = await response.json();
-					msg = j.error || j.detail || msg;
-				} catch {
-					/* ignorar */
-				}
-				return fail(response.status, { action: 'view', success: false, error: msg });
-			}
-
-			// Convertir el stream binario a base64 para enviarlo al frontend
-			const buffer = await response.arrayBuffer();
-			const bytes = new Uint8Array(buffer);
-			let binary = '';
-			bytes.forEach((b) => (binary += String.fromCharCode(b)));
-			const pdfBase64 = btoa(binary);
-
-			return { action: 'view', success: true, pdfBase64 };
-		} catch (error) {
-			return fail(500, {
-				action: 'view',
-				success: false,
-				error: error instanceof Error ? error.message : 'Error de conexión'
-			});
-		}
+		// Ya no hacemos fetch aquí, solo devolvemos el ID
+		return { action: 'view', success: true, fileId: id };
 	},
-
 	// ======================================================
 	// REEMPLAZAR archivo existente
 	// ======================================================

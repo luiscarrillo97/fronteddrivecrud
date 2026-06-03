@@ -21,7 +21,6 @@
 			fileName?: string;
 			link?: string;
 			deletedId?: string;
-			pdfBase64?: string;
 		} | null;
 	}>();
 
@@ -29,25 +28,13 @@
 	let uploading = $state(false);
 	let deletingId = $state<string | null>(null);
 	let replacingSubmit = $state(false);
-	let viewingSubmit = $state(false);
 
-	// Modal viewer
-	let modalOpen = $state(false);
-	let modalPdfSrc = $state('');
+	// Modal viewer — ya no necesita base64
+	let viewingFileId = $state<string | null>(null);
 	let modalName = $state('');
 
-	// Cuando llega form con pdfBase64 abrimos el modal
-	$effect(() => {
-		if (form?.action === 'view' && form.success && form.pdfBase64) {
-			modalPdfSrc = `data:application/pdf;base64,${form.pdfBase64}`;
-			modalOpen = true;
-			viewingSubmit = false;
-		}
-	});
-
 	function closeModal() {
-		modalOpen = false;
-		modalPdfSrc = '';
+		viewingFileId = null;
 		modalName = '';
 	}
 
@@ -71,8 +58,7 @@
 <!-- ══════════════════════════════════════════════════
      MODAL VISOR DE PDF
 ══════════════════════════════════════════════════ -->
-{#if modalOpen}
-	<!-- Backdrop -->
+{#if viewingFileId}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
 		role="dialog"
@@ -93,9 +79,9 @@
 				</button>
 			</div>
 
-			<!-- Visor -->
+			<!-- Visor — streaming directo, sin base64 -->
 			<div class="flex-1 overflow-hidden rounded-b-xl">
-				<embed src={modalPdfSrc} type="application/pdf" class="h-full w-full" title="Visor PDF" />
+				<iframe src="/api/pdf/{viewingFileId}" title={modalName} class="h-full w-full"></iframe>
 			</div>
 		</div>
 	</div>
@@ -234,29 +220,19 @@
 									<!-- Fecha -->
 									<td class="px-6 py-4 text-slate-500">{formatDate(file.fecha)}</td>
 
-									<!-- VER — proxy seguro, sin link directo a Drive -->
+									<!-- VER — streaming directo -->
 									<td class="px-6 py-4 text-center">
-										<form
-											method="POST"
-											action="?/view"
-											use:enhance={() => {
-												viewingSubmit = true;
+										<button
+											type="button"
+											onclick={() => {
+												viewingFileId = file.id;
 												modalName = file.nombre;
-												return async ({ update }) => {
-													await update({ reset: false });
-												};
 											}}
+											class="inline-flex items-center justify-center rounded-md border border-slate-200
+												   px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
 										>
-											<input type="hidden" name="id" value={file.id} />
-											<button
-												type="submit"
-												disabled={viewingSubmit}
-												class="inline-flex items-center justify-center rounded-md border border-slate-200
-													   px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
-											>
-												{viewingSubmit ? '…' : '👁 Ver'}
-											</button>
-										</form>
+											👁 Ver
+										</button>
 									</td>
 
 									<!-- REEMPLAZAR -->
