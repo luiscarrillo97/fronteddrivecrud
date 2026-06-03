@@ -9,11 +9,7 @@ const API_URL = 'https://drivecrud-269414280318.europe-west1.run.app';
 export const load: PageServerLoad = async ({ fetch }) => {
 	try {
 		const response = await fetch(`${API_URL}/files`);
-
-		if (!response.ok) {
-			return { files: [], error: 'No se pudo cargar la lista de archivos.' };
-		}
-
+		if (!response.ok) return { files: [], error: 'No se pudo cargar la lista de archivos.' };
 		const files = await response.json();
 		return { files };
 	} catch {
@@ -29,42 +25,36 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const file = formData.get('file');
 
-		if (!(file instanceof File)) {
+		if (!(file instanceof File))
 			return fail(400, {
 				action: 'upload',
 				success: false,
 				error: 'Debe seleccionar un archivo PDF.'
 			});
-		}
-		if (file.size === 0) {
+		if (file.size === 0)
 			return fail(400, { action: 'upload', success: false, error: 'El archivo está vacío.' });
-		}
-		if (!file.name.toLowerCase().endsWith('.pdf')) {
+		if (!file.name.toLowerCase().endsWith('.pdf'))
 			return fail(400, {
 				action: 'upload',
 				success: false,
 				error: 'Solo se permiten archivos PDF.'
 			});
-		}
 
 		try {
 			const apiFormData = new FormData();
 			apiFormData.append('file', file);
 
-			const response = await fetch(`${API_URL}/upload`, {
-				method: 'POST',
-				body: apiFormData
-			});
+			const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: apiFormData });
 
 			if (!response.ok) {
-				let errorMessage = `Error ${response.status}`;
+				let msg = `Error ${response.status}`;
 				try {
-					const errorJson = await response.json();
-					errorMessage = errorJson.error || errorJson.detail || errorMessage;
+					const j = await response.json();
+					msg = j.error || j.detail || msg;
 				} catch {
 					/* ignorar */
 				}
-				return fail(response.status, { action: 'upload', success: false, error: errorMessage });
+				return fail(response.status, { action: 'upload', success: false, error: msg });
 			}
 
 			const result = await response.json();
@@ -87,6 +77,48 @@ export const actions: Actions = {
 	},
 
 	// ======================================================
+	// VER PDF — proxy seguro, el usuario nunca ve el ID ni
+	// el link de Drive. El PDF llega como base64 al frontend.
+	// ======================================================
+	view: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const id = formData.get('id');
+
+		if (typeof id !== 'string' || !id)
+			return fail(400, { action: 'view', success: false, error: 'ID requerido.' });
+
+		try {
+			const response = await fetch(`${API_URL}/files/${id}/stream`);
+
+			if (!response.ok) {
+				let msg = `Error ${response.status}`;
+				try {
+					const j = await response.json();
+					msg = j.error || j.detail || msg;
+				} catch {
+					/* ignorar */
+				}
+				return fail(response.status, { action: 'view', success: false, error: msg });
+			}
+
+			// Convertir el stream binario a base64 para enviarlo al frontend
+			const buffer = await response.arrayBuffer();
+			const bytes = new Uint8Array(buffer);
+			let binary = '';
+			bytes.forEach((b) => (binary += String.fromCharCode(b)));
+			const pdfBase64 = btoa(binary);
+
+			return { action: 'view', success: true, pdfBase64 };
+		} catch (error) {
+			return fail(500, {
+				action: 'view',
+				success: false,
+				error: error instanceof Error ? error.message : 'Error de conexión'
+			});
+		}
+	},
+
+	// ======================================================
 	// REEMPLAZAR archivo existente
 	// ======================================================
 	replace: async ({ request, fetch }) => {
@@ -94,45 +126,38 @@ export const actions: Actions = {
 		const file = formData.get('file');
 		const id = formData.get('id');
 
-		if (typeof id !== 'string' || !id) {
+		if (typeof id !== 'string' || !id)
 			return fail(400, { action: 'replace', success: false, error: 'ID de archivo requerido.' });
-		}
-		if (!(file instanceof File)) {
+		if (!(file instanceof File))
 			return fail(400, {
 				action: 'replace',
 				success: false,
 				error: 'Debe seleccionar un archivo PDF.'
 			});
-		}
-		if (file.size === 0) {
+		if (file.size === 0)
 			return fail(400, { action: 'replace', success: false, error: 'El archivo está vacío.' });
-		}
-		if (!file.name.toLowerCase().endsWith('.pdf')) {
+		if (!file.name.toLowerCase().endsWith('.pdf'))
 			return fail(400, {
 				action: 'replace',
 				success: false,
 				error: 'Solo se permiten archivos PDF.'
 			});
-		}
 
 		try {
 			const apiFormData = new FormData();
 			apiFormData.append('file', file);
 
-			const response = await fetch(`${API_URL}/files/${id}`, {
-				method: 'PUT',
-				body: apiFormData
-			});
+			const response = await fetch(`${API_URL}/files/${id}`, { method: 'PUT', body: apiFormData });
 
 			if (!response.ok) {
-				let errorMessage = `Error ${response.status}`;
+				let msg = `Error ${response.status}`;
 				try {
-					const errorJson = await response.json();
-					errorMessage = errorJson.error || errorJson.detail || errorMessage;
+					const j = await response.json();
+					msg = j.error || j.detail || msg;
 				} catch {
 					/* ignorar */
 				}
-				return fail(response.status, { action: 'replace', success: false, error: errorMessage });
+				return fail(response.status, { action: 'replace', success: false, error: msg });
 			}
 
 			const result = await response.json();
@@ -159,24 +184,21 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const id = formData.get('id');
 
-		if (typeof id !== 'string' || !id) {
+		if (typeof id !== 'string' || !id)
 			return fail(400, { action: 'delete', success: false, error: 'ID de archivo requerido.' });
-		}
 
 		try {
-			const response = await fetch(`${API_URL}/files/${id}`, {
-				method: 'DELETE'
-			});
+			const response = await fetch(`${API_URL}/files/${id}`, { method: 'DELETE' });
 
 			if (!response.ok) {
-				let errorMessage = `Error ${response.status}`;
+				let msg = `Error ${response.status}`;
 				try {
-					const errorJson = await response.json();
-					errorMessage = errorJson.error || errorJson.detail || errorMessage;
+					const j = await response.json();
+					msg = j.error || j.detail || msg;
 				} catch {
 					/* ignorar */
 				}
-				return fail(response.status, { action: 'delete', success: false, error: errorMessage });
+				return fail(response.status, { action: 'delete', success: false, error: msg });
 			}
 
 			return { action: 'delete', success: true, deletedId: id };

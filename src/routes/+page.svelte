@@ -21,16 +21,35 @@
 			fileName?: string;
 			link?: string;
 			deletedId?: string;
+			pdfBase64?: string;
 		} | null;
 	}>();
 
-	// ID del archivo al que se le está haciendo replace (null = ninguno)
 	let replacingId = $state<string | null>(null);
-
-	// Mientras se procesa alguna acción
 	let uploading = $state(false);
 	let deletingId = $state<string | null>(null);
 	let replacingSubmit = $state(false);
+	let viewingSubmit = $state(false);
+
+	// Modal viewer
+	let modalOpen = $state(false);
+	let modalPdfSrc = $state('');
+	let modalName = $state('');
+
+	// Cuando llega form con pdfBase64 abrimos el modal
+	$effect(() => {
+		if (form?.action === 'view' && form.success && form.pdfBase64) {
+			modalPdfSrc = `data:application/pdf;base64,${form.pdfBase64}`;
+			modalOpen = true;
+			viewingSubmit = false;
+		}
+	});
+
+	function closeModal() {
+		modalOpen = false;
+		modalPdfSrc = '';
+		modalName = '';
+	}
 
 	function formatSize(bytes: number | null): string {
 		if (!bytes) return '—';
@@ -49,9 +68,45 @@
 	}
 </script>
 
+<!-- ══════════════════════════════════════════════════
+     MODAL VISOR DE PDF
+══════════════════════════════════════════════════ -->
+{#if modalOpen}
+	<!-- Backdrop -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Visor de PDF"
+	>
+		<div class="flex h-[90vh] w-full max-w-5xl flex-col rounded-xl bg-white shadow-2xl">
+			<!-- Header modal -->
+			<div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+				<span class="truncate text-sm font-semibold text-slate-700">
+					📄 {modalName}
+				</span>
+				<button
+					onclick={closeModal}
+					class="rounded-lg px-3 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100"
+				>
+					✕ Cerrar
+				</button>
+			</div>
+
+			<!-- Visor -->
+			<div class="flex-1 overflow-hidden rounded-b-xl">
+				<embed src={modalPdfSrc} type="application/pdf" class="h-full w-full" title="Visor PDF" />
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ══════════════════════════════════════════════════
+     PÁGINA PRINCIPAL
+══════════════════════════════════════════════════ -->
 <main class="min-h-screen bg-slate-50 px-4 py-10 font-sans">
 	<div class="mx-auto max-w-4xl space-y-8">
-		<!-- ── CABECERA ── -->
+		<!-- CABECERA -->
 		<div>
 			<h1 class="text-3xl font-extrabold tracking-tight text-slate-800">📁 Gestor de PDFs</h1>
 			<p class="mt-1 text-sm text-slate-500">
@@ -59,13 +114,10 @@
 			</p>
 		</div>
 
-		<!-- ── TOAST GLOBAL ── -->
+		<!-- TOASTS -->
 		{#if form?.success && form.action === 'upload'}
 			<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
 				✅ <strong>{form.fileName}</strong> subido correctamente.
-				<a href={form.link} target="_blank" rel="noopener noreferrer" class="ml-2 underline">
-					Ver en Drive
-				</a>
 			</div>
 		{/if}
 		{#if form?.success && form.action === 'replace'}
@@ -93,10 +145,9 @@
 			</div>
 		{/if}
 
-		<!-- ── CARD: SUBIR PDF ── -->
+		<!-- CARD SUBIR -->
 		<div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 			<h2 class="mb-4 text-lg font-semibold text-slate-700">Subir nuevo PDF</h2>
-
 			<form
 				method="POST"
 				action="?/upload"
@@ -129,15 +180,14 @@
 				<button
 					type="submit"
 					disabled={uploading}
-					class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white
-						   hover:bg-blue-700 disabled:opacity-60"
+					class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
 				>
 					{uploading ? 'Subiendo…' : 'Subir archivo'}
 				</button>
 			</form>
 		</div>
 
-		<!-- ── CARD: TABLA DE ARCHIVOS ── -->
+		<!-- CARD TABLA -->
 		<div class="rounded-xl border border-slate-200 bg-white shadow-sm">
 			<div class="border-b border-slate-100 px-6 py-4">
 				<h2 class="text-lg font-semibold text-slate-700">
@@ -172,40 +222,46 @@
 								<tr class="transition-colors hover:bg-slate-50">
 									<!-- Nombre -->
 									<td
-										class="max-w-[220px] truncate px-6 py-4 font-medium text-slate-800"
+										class="max-w-[200px] truncate px-6 py-4 font-medium text-slate-800"
 										title={file.nombre}
 									>
 										📄 {file.nombre}
 									</td>
 
 									<!-- Tamaño -->
-									<td class="px-6 py-4 text-slate-500">
-										{formatSize(file.tamano)}
-									</td>
+									<td class="px-6 py-4 text-slate-500">{formatSize(file.tamano)}</td>
 
 									<!-- Fecha -->
-									<td class="px-6 py-4 text-slate-500">
-										{formatDate(file.fecha)}
-									</td>
+									<td class="px-6 py-4 text-slate-500">{formatDate(file.fecha)}</td>
 
-									<!-- VER -->
+									<!-- VER — proxy seguro, sin link directo a Drive -->
 									<td class="px-6 py-4 text-center">
-										<a
-											href={file.link}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="inline-flex items-center justify-center rounded-md border border-slate-200
-												   px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-											title="Ver en Drive"
+										<form
+											method="POST"
+											action="?/view"
+											use:enhance={() => {
+												viewingSubmit = true;
+												modalName = file.nombre;
+												return async ({ update }) => {
+													await update({ reset: false });
+												};
+											}}
 										>
-											👁 Ver
-										</a>
+											<input type="hidden" name="id" value={file.id} />
+											<button
+												type="submit"
+												disabled={viewingSubmit}
+												class="inline-flex items-center justify-center rounded-md border border-slate-200
+													   px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+											>
+												{viewingSubmit ? '…' : '👁 Ver'}
+											</button>
+										</form>
 									</td>
 
 									<!-- REEMPLAZAR -->
 									<td class="px-6 py-4 text-center">
 										{#if replacingId === file.id}
-											<!-- formulario inline de reemplazo -->
 											<form
 												method="POST"
 												action="?/replace"
@@ -254,7 +310,6 @@
 												onclick={() => (replacingId = file.id)}
 												class="inline-flex items-center justify-center rounded-md border border-slate-200
 													   px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-												title="Reemplazar PDF"
 											>
 												🔄 Reemplazar
 											</button>
@@ -283,9 +338,7 @@
 													if (!confirm(`¿Eliminar "${file.nombre}"?`)) e.preventDefault();
 												}}
 												class="inline-flex items-center justify-center rounded-md border border-red-200
-													   px-3 py-1 text-xs font-medium text-red-600
-													   hover:bg-red-50 disabled:opacity-60"
-												title="Eliminar archivo"
+													   px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
 											>
 												{deletingId === file.id ? '…' : '🗑 Eliminar'}
 											</button>
