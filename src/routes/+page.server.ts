@@ -6,22 +6,98 @@ const API_URL = 'https://drivecrud-269414280318.europe-west1.run.app';
 // ======================================================
 // LOAD — lista archivos al cargar la página
 // ======================================================
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, cookies }) => {
+	const token = cookies.get('token');
+
+	if (!token) {
+		return { files: [], error: null, loggedIn: false };
+	}
+
 	try {
-		const response = await fetch(`${API_URL}/files`);
+		const response = await fetch(`${API_URL}/files`, {
+			headers: { Authorization: `Bearer ${token}` }
+		});
 		if (!response.ok) return { files: [], error: 'No se pudo cargar la lista de archivos.' };
 		const files = await response.json();
-		return { files };
+		return { files, loggedIn: true };
 	} catch {
-		return { files: [], error: 'Error de conexión al cargar archivos.' };
+		return { files: [], error: 'Error de conexión al cargar archivos.', loggedIn: true };
 	}
 };
 
 export const actions: Actions = {
 	// ======================================================
+	// LOGIN DE USUARIO
+	// ======================================================
+	login: async ({ request, fetch, cookies }) => {
+		const formData = await request.formData();
+		const dni = formData.get('dni');
+		const contrasena = formData.get('contrasena');
+
+		if (!dni || !contrasena) {
+			return fail(400, {
+				action: 'login',
+				success: false,
+				error: 'DNI y contraseña son requeridos.'
+			});
+		}
+
+		try {
+			const response = await fetch(`${API_URL}/login`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ dni, contrasena })
+			});
+
+			const result = await response.json();
+
+			if (!response.ok || !result.success) {
+				return fail(response.status || 400, {
+					action: 'login',
+					success: false,
+					error: result.error || 'Credenciales inválidas.'
+				});
+			}
+
+			// Guardar token en una cookie segura (HttpOnly)
+			cookies.set('token', result.token, {
+				path: '/',
+				httpOnly: true,
+				secure: true,
+				sameSite: 'strict',
+				maxAge: 60 * 60 * 8 // 8 horas, coincidiendo con la API
+			});
+
+			return { action: 'login', success: true, usuario: result.usuario };
+		} catch {
+			return fail(500, {
+				action: 'login',
+				success: false,
+				error: 'Error al intentar conectar con el servidor.'
+			});
+		}
+	},
+
+	// ======================================================
+	// LOGOUT DE USUARIO
+	// ======================================================
+	logout: async ({ cookies }) => {
+		cookies.delete('token', { path: '/' });
+		return { action: 'logout', success: true };
+	},
+
+	// ======================================================
 	// SUBIR archivo nuevo
 	// ======================================================
-	upload: async ({ request, fetch }) => {
+	upload: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		if (!token)
+			return fail(401, {
+				action: 'upload',
+				success: false,
+				error: 'No autorizado. Inicia sesión.'
+			});
+
 		const formData = await request.formData();
 		const file = formData.get('file');
 
@@ -44,7 +120,11 @@ export const actions: Actions = {
 			const apiFormData = new FormData();
 			apiFormData.append('file', file);
 
-			const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: apiFormData });
+			const response = await fetch(`${API_URL}/upload`, {
+				method: 'POST',
+				body: apiFormData,
+				headers: { Authorization: `Bearer ${token}` }
+			});
 
 			if (!response.ok) {
 				let msg = `Error ${response.status}`;
@@ -97,7 +177,15 @@ export const actions: Actions = {
 	// ======================================================
 	// REEMPLAZAR archivo existente
 	// ======================================================
-	replace: async ({ request, fetch }) => {
+	replace: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		if (!token)
+			return fail(401, {
+				action: 'replace',
+				success: false,
+				error: 'No autorizado. Inicia sesión.'
+			});
+
 		const formData = await request.formData();
 		const file = formData.get('file');
 		const id = formData.get('id');
@@ -123,7 +211,11 @@ export const actions: Actions = {
 			const apiFormData = new FormData();
 			apiFormData.append('file', file);
 
-			const response = await fetch(`${API_URL}/files/${id}`, { method: 'PUT', body: apiFormData });
+			const response = await fetch(`${API_URL}/files/${id}`, {
+				method: 'PUT',
+				body: apiFormData,
+				headers: { Authorization: `Bearer ${token}` }
+			});
 
 			if (!response.ok) {
 				let msg = `Error ${response.status}`;
@@ -156,7 +248,15 @@ export const actions: Actions = {
 	// ======================================================
 	// ELIMINAR archivo
 	// ======================================================
-	delete: async ({ request, fetch }) => {
+	delete: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		if (!token)
+			return fail(401, {
+				action: 'delete',
+				success: false,
+				error: 'No autorizado. Inicia sesión.'
+			});
+
 		const formData = await request.formData();
 		const id = formData.get('id');
 
@@ -164,7 +264,10 @@ export const actions: Actions = {
 			return fail(400, { action: 'delete', success: false, error: 'ID de archivo requerido.' });
 
 		try {
-			const response = await fetch(`${API_URL}/files/${id}`, { method: 'DELETE' });
+			const response = await fetch(`${API_URL}/files/${id}`, {
+				method: 'DELETE',
+				headers: { Authorization: `Bearer ${token}` }
+			});
 
 			if (!response.ok) {
 				let msg = `Error ${response.status}`;
