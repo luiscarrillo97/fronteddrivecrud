@@ -4,6 +4,7 @@
 	import UploadForm from '$lib/components/UploadForm.svelte';
 	import FileTable from '$lib/components/FileTable.svelte';
 	import Login from '$lib/components/Login.svelte';
+	import AddUser from '$lib/components/AddUser.svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -16,11 +17,13 @@
 			}[];
 			error?: string;
 			loggedIn: boolean;
+			role: string | null;
 		};
 		form: {
 			action?: string;
 			success?: boolean;
 			error?: string;
+			message?: string;
 			fileName?: string;
 			usuario?: any;
 		} | null;
@@ -58,6 +61,11 @@
 
 			<!-- Toasts -->
 			<Toast {form} dataError={data.error} />
+
+			<!-- Agregar Usuario (Solo visible para Admin) -->
+			{#if data.role === 'ADMIN'}
+				<AddUser {form} />
+			{/if}
 
 			<!-- Subir -->
 			<UploadForm />

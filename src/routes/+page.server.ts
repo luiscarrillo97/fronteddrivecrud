@@ -8,9 +8,10 @@ const API_URL = 'https://drivecrud-269414280318.europe-west1.run.app';
 // ======================================================
 export const load: PageServerLoad = async ({ fetch, cookies }) => {
 	const token = cookies.get('token');
+	const role = cookies.get('role');
 
 	if (!token) {
-		return { files: [], error: null, loggedIn: false };
+		return { files: [], error: null, loggedIn: false, role: null };
 	}
 
 	try {
@@ -19,9 +20,14 @@ export const load: PageServerLoad = async ({ fetch, cookies }) => {
 		});
 		if (!response.ok) return { files: [], error: 'No se pudo cargar la lista de archivos.' };
 		const files = await response.json();
-		return { files, loggedIn: true };
+		return { files, loggedIn: true, role: role || null };
 	} catch {
-		return { files: [], error: 'Error de conexión al cargar archivos.', loggedIn: true };
+		return {
+			files: [],
+			error: 'Error de conexión al cargar archivos.',
+			loggedIn: true,
+			role: role || null
+		};
 	}
 };
 
@@ -68,6 +74,16 @@ export const actions: Actions = {
 				maxAge: 60 * 60 * 8 // 8 horas, coincidiendo con la API
 			});
 
+			// Guardar el rol en una cookie para saber si es ADMIN en la UI
+			const userRole = result.usuario?.rol || result.usuario?.Rol || 'USER';
+			cookies.set('role', userRole, {
+				path: '/',
+				httpOnly: true,
+				secure: true,
+				sameSite: 'strict',
+				maxAge: 60 * 60 * 8
+			});
+
 			return { action: 'login', success: true, usuario: result.usuario };
 		} catch {
 			return fail(500, {
@@ -83,7 +99,65 @@ export const actions: Actions = {
 	// ======================================================
 	logout: async ({ cookies }) => {
 		cookies.delete('token', { path: '/' });
+		cookies.delete('role', { path: '/' });
 		return { action: 'logout', success: true };
+	},
+
+	// ======================================================
+	// CREAR NUEVO USUARIO (SOLO ADMIN)
+	// ======================================================
+	createUser: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		if (!token)
+			return fail(401, {
+				action: 'createUser',
+				success: false,
+				error: 'No autorizado. Inicia sesión.'
+			});
+
+		const formData = await request.formData();
+		const dni = formData.get('dni') as string;
+		const nombres = formData.get('nombres') as string;
+		const contrasena = formData.get('contrasena') as string;
+		const rol = formData.get('rol') as string;
+		const zona = formData.get('zona') as string;
+		const celular = formData.get('celular') as string;
+
+		if (!dni || !contrasena) {
+			return fail(400, {
+				action: 'createUser',
+				success: false,
+				error: 'DNI y contraseña son requeridos.'
+			});
+		}
+
+		try {
+			const response = await fetch(`${API_URL}/users`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ dni, nombres, contrasena, rol, zona, celular })
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				return fail(response.status, {
+					action: 'createUser',
+					success: false,
+					error: errorData.error || 'Error al crear usuario. Verifica que seas ADMIN.'
+				});
+			}
+
+			return { action: 'createUser', success: true, message: 'Usuario creado exitosamente.' };
+		} catch (error) {
+			return fail(500, {
+				action: 'createUser',
+				success: false,
+				error: error instanceof Error ? error.message : 'Error de conexión con la API.'
+			});
+		}
 	},
 
 	// ======================================================
