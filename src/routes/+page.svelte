@@ -4,7 +4,8 @@
 	import UploadForm from '$lib/components/UploadForm.svelte';
 	import FileTable from '$lib/components/FileTable.svelte';
 	import Login from '$lib/components/Login.svelte';
-	import AdminPanel from '$lib/components/AdminPanel.svelte';
+	import AddUser from '$lib/components/AddUser.svelte';
+	import RecoverPassword from '$lib/components/RecoverPassword.svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -63,9 +64,10 @@
 			<!-- Toasts -->
 			<Toast {form} dataError={data.error} />
 
-			<!-- Panel de Administración (Solo visible para Admin) -->
+			<!-- Agregar Usuario (Solo visible para Admin) -->
 			{#if data.role === 'ADMIN'}
-				<AdminPanel {form} />
+				<AddUser {form} />
+				<RecoverPassword {form} />
 			{/if}
 
 			<!-- Subir -->
