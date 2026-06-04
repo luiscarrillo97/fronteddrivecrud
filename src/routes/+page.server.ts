@@ -161,15 +161,15 @@ export const actions: Actions = {
 	},
 
 	// ======================================================
-	// RECUPERAR CONTRASEÑA (SOLO ADMIN)
+	// CAMBIAR CONTRASEÑA (SOLO ADMIN)
 	// ======================================================
-	recoverPassword: async ({ request, fetch, cookies }) => {
+	resetPassword: async ({ request, fetch, cookies }) => {
 		const token = cookies.get('token');
 		const role = cookies.get('role');
 
 		if (!token || role !== 'ADMIN') {
 			return fail(401, {
-				action: 'recoverPassword',
+				action: 'resetPassword',
 				success: false,
 				error: 'No autorizado. Solo los administradores pueden realizar esta acción.'
 			});
@@ -177,42 +177,44 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		const dni = formData.get('dni') as string;
-		const celular = formData.get('celular') as string;
+		const nuevaContrasena = formData.get('nuevaContrasena') as string;
 
-		if (!dni || !celular) {
+		if (!dni || !nuevaContrasena) {
 			return fail(400, {
-				action: 'recoverPassword',
+				action: 'resetPassword',
 				success: false,
-				error: 'El DNI y el celular son requeridos.'
+				error: 'El DNI y la nueva contraseña son requeridos.'
 			});
 		}
 
 		try {
-			const response = await fetch(`${API_URL}/recover-password`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ dni, celular })
+			const response = await fetch(`${API_URL}/users/${dni}/password`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ nuevaContrasena })
 			});
 
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({}));
 				return fail(response.status, {
-					action: 'recoverPassword',
+					action: 'resetPassword',
 					success: false,
-					error: errorData.error || 'Error al recuperar contraseña.'
+					error: errorData.error || 'Error al cambiar la contraseña.'
 				});
 			}
 
 			const data = await response.json();
 			return {
-				action: 'recoverPassword',
+				action: 'resetPassword',
 				success: true,
-				message: data.message,
-				nuevaContrasena: data.nuevaContrasena
+				message: data.message
 			};
 		} catch (error) {
 			return fail(500, {
-				action: 'recoverPassword',
+				action: 'resetPassword',
 				success: false,
 				error: error instanceof Error ? error.message : 'Error de conexión con la API.'
 			});
