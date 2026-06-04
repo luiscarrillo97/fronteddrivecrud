@@ -161,6 +161,65 @@ export const actions: Actions = {
 	},
 
 	// ======================================================
+	// RECUPERAR CONTRASEÑA (SOLO ADMIN)
+	// ======================================================
+	recoverPassword: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		const role = cookies.get('role');
+
+		if (!token || role !== 'ADMIN') {
+			return fail(401, {
+				action: 'recoverPassword',
+				success: false,
+				error: 'No autorizado. Solo los administradores pueden realizar esta acción.'
+			});
+		}
+
+		const formData = await request.formData();
+		const dni = formData.get('dni') as string;
+		const celular = formData.get('celular') as string;
+
+		if (!dni || !celular) {
+			return fail(400, {
+				action: 'recoverPassword',
+				success: false,
+				error: 'El DNI y el celular son requeridos.'
+			});
+		}
+
+		try {
+			const response = await fetch(`${API_URL}/recover-password`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ dni, celular })
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				return fail(response.status, {
+					action: 'recoverPassword',
+					success: false,
+					error: errorData.error || 'Error al recuperar contraseña.'
+				});
+			}
+
+			const data = await response.json();
+			return {
+				action: 'recoverPassword',
+				success: true,
+				message: data.message,
+				nuevaContrasena: data.nuevaContrasena
+			};
+		} catch (error) {
+			return fail(500, {
+				action: 'recoverPassword',
+				success: false,
+				error: error instanceof Error ? error.message : 'Error de conexión con la API.'
+			});
+		}
+	},
+
+	// ======================================================
 	// SUBIR archivo nuevo
 	// ======================================================
 	upload: async ({ request, fetch, cookies }) => {

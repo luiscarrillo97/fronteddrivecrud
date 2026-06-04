@@ -5,6 +5,7 @@
 	import FileTable from '$lib/components/FileTable.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import AddUser from '$lib/components/AddUser.svelte';
+	import RecoverPassword from '$lib/components/RecoverPassword.svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -26,6 +27,7 @@
 			message?: string;
 			fileName?: string;
 			usuario?: any;
+			nuevaContrasena?: string;
 		} | null;
 	}>();
 
@@ -65,6 +67,7 @@
 			<!-- Agregar Usuario (Solo visible para Admin) -->
 			{#if data.role === 'ADMIN'}
 				<AddUser {form} />
+				<RecoverPassword {form} />
 			{/if}
 
 			<!-- Subir -->
