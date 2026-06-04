@@ -121,6 +121,7 @@ export const actions: Actions = {
 		const contrasena = formData.get('contrasena') as string;
 		const rol = formData.get('rol') as string;
 		const zona = formData.get('zona') as string;
+		const tipoPersonero = formData.get('tipoPersonero') as string;
 		const celular = formData.get('celular') as string;
 
 		if (!dni || !contrasena) {
@@ -138,7 +139,7 @@ export const actions: Actions = {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`
 				},
-				body: JSON.stringify({ dni, nombres, contrasena, rol, zona, celular })
+				body: JSON.stringify({ dni, nombres, contrasena, rol, zona, tipoPersonero, celular })
 			});
 
 			if (!response.ok) {
