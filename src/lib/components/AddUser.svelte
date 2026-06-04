@@ -89,6 +89,7 @@
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			>
 				<option value="">Seleccione un tipo...</option>
+				<option value="DEPARTAMENTO">Nacional</option>
 				<option value="DEPARTAMENTO">Departamento</option>
 				<option value="PROVINCIA">Provincia</option>
 				<option value="DISTRITO">Distrito</option>
