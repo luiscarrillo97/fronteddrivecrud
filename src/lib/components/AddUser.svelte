@@ -60,14 +60,35 @@
 	<form
 		method="POST"
 		action="?/createUser"
-		use:enhance={() => {
+		use:enhance={({ formData }) => {
+			// 🐛 MODO DEBUG: Imprimimos en la consola del navegador (F12) lo que se va a enviar
+			console.log('=== DATOS ENVIADOS AL SERVIDOR ===');
+			console.log('DNI:', formData.get('dni'));
+			console.log('Nombres:', formData.get('nombres'));
+			console.log('Rol:', formData.get('rol'));
+			console.log('CodUbigeo (Oculto):', formData.get('codUbigeo'));
+			console.log('Tipo Personero:', formData.get('tipoPersonero'));
+			console.log('Celular:', formData.get('celular'));
+			console.log('==================================');
+
 			loading = true;
-			return async ({ update }) => {
-				// Se actualiza la UI y se limpian los campos si fue exitoso
-				await update();
-				selectedDepartamento = '';
-				selectedProvincia = '';
-				selectedCodUbigeo = '';
+			return async ({ result, update }) => {
+				// update() procesa la respuesta del servidor (muestra mensajes de éxito/error)
+				// Usamos { reset: false } para que SvelteKit no borre todo automáticamente
+				await update({ reset: false });
+
+				// ✨ MAGIA UX: Solo limpiamos los campos manualmente SI FUE EXITOSO
+				if (result.type === 'success') {
+					// Limpiamos los combos de Ubigeo
+					selectedDepartamento = '';
+					selectedProvincia = '';
+					selectedCodUbigeo = '';
+
+					// Limpiamos los inputs normales (DNI, Nombres, etc.)
+					const formElement = document.querySelector('form');
+					if (formElement) formElement.reset();
+				}
+
 				loading = false;
 			};
 		}}
@@ -116,7 +137,6 @@
 			</select>
 		</div>
 
-		<!-- Selectores en cascada para Ubigeo -->
 		<div
 			class="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2 sm:grid-cols-3"
 		>
@@ -174,7 +194,6 @@
 						<option value={dist.cod_ubigeo || dist.codUbigeo}>{dist.distrito}</option>
 					{/each}
 				</select>
-				<!-- Input oculto enviado con el formulario al backend -->
 				<input type="hidden" name="codUbigeo" value={selectedCodUbigeo} required />
 			</div>
 		</div>
@@ -188,7 +207,7 @@
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			>
 				<option value="">Seleccione un tipo...</option>
-				<option value="DEPARTAMENTO">Nacional</option>
+				<option value="NACIONAL">Nacional</option>
 				<option value="DEPARTAMENTO">Departamento</option>
 				<option value="PROVINCIA">Provincia</option>
 				<option value="DISTRITO">Distrito</option>
