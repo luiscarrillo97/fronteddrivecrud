@@ -58,10 +58,14 @@ export const actions: Actions = {
 			const result = await response.json();
 
 			if (!response.ok || !result.success) {
+				// Intentar extraer el mensaje de error de la API si existe
+				let apiErrorMsg = result.error || 'Credenciales inválidas.';
+				if (result.detail) apiErrorMsg += ` (${result.detail})`;
+
 				return fail(response.status || 400, {
 					action: 'login',
 					success: false,
-					error: result.error || 'Credenciales inválidas.'
+					error: apiErrorMsg
 				});
 			}
 
@@ -85,11 +89,11 @@ export const actions: Actions = {
 			});
 
 			return { action: 'login', success: true, usuario: result.usuario };
-		} catch {
+		} catch (error) {
 			return fail(500, {
 				action: 'login',
 				success: false,
-				error: 'Error al intentar conectar con el servidor.'
+				error: `Error al intentar conectar con el servidor: ${error instanceof Error ? error.message : 'Desconocido'}`
 			});
 		}
 	},
