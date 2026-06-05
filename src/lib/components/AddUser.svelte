@@ -11,6 +11,48 @@
 	}>();
 
 	let loading = $state(false);
+
+	// --- Lógica de Ubigeo ---
+	interface Ubigeo {
+		cod_ubigeo?: string;
+		codUbigeo?: string; // Por si el API usa camelCase
+		departamento: string;
+		provincia: string;
+		distrito: string;
+	}
+
+	let ubigeos = $state<Ubigeo[]>([]);
+	let selectedDepartamento = $state('');
+	let selectedProvincia = $state('');
+	let selectedCodUbigeo = $state('');
+
+	// Derivamos las listas filtradas y únicas
+	let departamentos = $derived([...new Set(ubigeos.map((u) => u.departamento))].sort());
+	let provincias = $derived(
+		selectedDepartamento
+			? [
+					...new Set(
+						ubigeos.filter((u) => u.departamento === selectedDepartamento).map((u) => u.provincia)
+					)
+				].sort()
+			: []
+	);
+	let distritos = $derived(
+		selectedProvincia
+			? ubigeos
+					.filter(
+						(u) => u.departamento === selectedDepartamento && u.provincia === selectedProvincia
+					)
+					.sort((a, b) => a.distrito.localeCompare(b.distrito))
+			: []
+	);
+
+	$effect(() => {
+		fetch('https://drivecrud-269414280318.europe-west1.run.app/ubigeo')
+			.then((res) => res.json())
+			.then((data) => (ubigeos = data))
+			.catch((err) => console.error('Error cargando ubigeos:', err));
+	});
 </script>
 
 <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -23,6 +65,9 @@
 			return async ({ update }) => {
 				// Se actualiza la UI y se limpian los campos si fue exitoso
 				await update();
+				selectedDepartamento = '';
+				selectedProvincia = '';
+				selectedCodUbigeo = '';
 				loading = false;
 			};
 		}}
@@ -70,16 +115,68 @@
 				<option value="ADMIN">Administrador (ADMIN)</option>
 			</select>
 		</div>
-		<div>
-			<label for="codUbigeo" class="mb-1 block text-sm font-medium text-slate-700"
-				>Código Ubigeo</label
-			>
-			<input
-				type="text"
-				name="codUbigeo"
-				id="codUbigeo"
-				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
-			/>
+
+		<!-- Selectores en cascada para Ubigeo -->
+		<div
+			class="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2 sm:grid-cols-3"
+		>
+			<div class="sm:col-span-3">
+				<h3 class="text-sm font-semibold text-slate-700">Ubicación (Ubigeo)</h3>
+			</div>
+			<div>
+				<label for="departamento" class="mb-1 block text-xs font-medium text-slate-600"
+					>Departamento</label
+				>
+				<select
+					id="departamento"
+					bind:value={selectedDepartamento}
+					onchange={() => {
+						selectedProvincia = '';
+						selectedCodUbigeo = '';
+					}}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+				>
+					<option value="">Seleccione...</option>
+					{#each departamentos as depto (depto)}
+						<option value={depto}>{depto}</option>
+					{/each}
+				</select>
+			</div>
+			<div>
+				<label for="provincia" class="mb-1 block text-xs font-medium text-slate-600"
+					>Provincia</label
+				>
+				<select
+					id="provincia"
+					bind:value={selectedProvincia}
+					onchange={() => {
+						selectedCodUbigeo = '';
+					}}
+					disabled={!selectedDepartamento}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none disabled:bg-slate-100 disabled:opacity-70"
+				>
+					<option value="">Seleccione...</option>
+					{#each provincias as prov (prov)}
+						<option value={prov}>{prov}</option>
+					{/each}
+				</select>
+			</div>
+			<div>
+				<label for="distrito" class="mb-1 block text-xs font-medium text-slate-600">Distrito</label>
+				<select
+					id="distrito"
+					bind:value={selectedCodUbigeo}
+					disabled={!selectedProvincia}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none disabled:bg-slate-100 disabled:opacity-70"
+				>
+					<option value="">Seleccione...</option>
+					{#each distritos as dist (dist)}
+						<option value={dist.cod_ubigeo || dist.codUbigeo}>{dist.distrito}</option>
+					{/each}
+				</select>
+				<!-- Input oculto enviado con el formulario al backend -->
+				<input type="hidden" name="codUbigeo" value={selectedCodUbigeo} required />
+			</div>
 		</div>
 		<div>
 			<label for="tipoPersonero" class="mb-1 block text-sm font-medium text-slate-700"
