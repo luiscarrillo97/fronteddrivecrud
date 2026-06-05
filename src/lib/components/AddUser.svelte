@@ -71,11 +71,13 @@
 			</select>
 		</div>
 		<div>
-			<label for="zona" class="mb-1 block text-sm font-medium text-slate-700">Zona</label>
+			<label for="codUbigeo" class="mb-1 block text-sm font-medium text-slate-700"
+				>Código Ubigeo</label
+			>
 			<input
 				type="text"
-				name="zona"
-				id="zona"
+				name="codUbigeo"
+				id="codUbigeo"
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			/>
 		</div>
