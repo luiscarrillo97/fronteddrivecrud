@@ -106,7 +106,6 @@ export const actions: Actions = {
 		cookies.delete('role', { path: '/' });
 		return { action: 'logout', success: true };
 	},
-
 	// ======================================================
 	// CREAR NUEVO USUARIO (SOLO ADMIN)
 	// ======================================================
@@ -128,11 +127,26 @@ export const actions: Actions = {
 		const tipoPersonero = formData.get('tipoPersonero') as string;
 		const celular = formData.get('celular') as string;
 
+		// 1. Validaciones más estrictas para evitar que la BD explote
 		if (!dni || !contrasena) {
 			return fail(400, {
 				action: 'createUser',
 				success: false,
 				error: 'DNI y contraseña son requeridos.'
+			});
+		}
+		if (!codUbigeo) {
+			return fail(400, {
+				action: 'createUser',
+				success: false,
+				error: 'Debes seleccionar una Ubicación válida (hasta el distrito).'
+			});
+		}
+		if (!tipoPersonero) {
+			return fail(400, {
+				action: 'createUser',
+				success: false,
+				error: 'Debes seleccionar un Tipo de Personero.'
 			});
 		}
 
@@ -141,17 +155,21 @@ export const actions: Actions = {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`
+					Authorization: `Bearer ${token}` // ¡Esto estaba perfecto!
 				},
 				body: JSON.stringify({ dni, nombres, contrasena, rol, codUbigeo, tipoPersonero, celular })
 			});
 
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({}));
+				// 👇 AHORA SÍ LEEMOS EL "DETAIL" QUE MANDA TU API DE C#
+				const apiErrorMsg =
+					errorData.error || errorData.detail || 'Error interno al crear usuario.';
+
 				return fail(response.status, {
 					action: 'createUser',
 					success: false,
-					error: errorData.error || 'Error al crear usuario. Verifica que seas ADMIN.'
+					error: apiErrorMsg
 				});
 			}
 
