@@ -6,6 +6,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import AddUser from '$lib/components/AddUser.svelte';
 	import RecoverPassword from '$lib/components/RecoverPassword.svelte';
+	import AssignMesa from '$lib/components/AssignMesa.svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -68,6 +69,7 @@
 			{#if data.role === 'ADMIN'}
 				<AddUser {form} />
 				<RecoverPassword {form} />
+				<AssignMesa {form} />
 			{/if}
 
 			<!-- Subir -->

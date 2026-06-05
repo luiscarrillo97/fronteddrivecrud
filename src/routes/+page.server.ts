@@ -245,6 +245,64 @@ export const actions: Actions = {
 	},
 
 	// ======================================================
+	// ASIGNAR MESA (SOLO ADMIN)
+	// ======================================================
+	assignMesa: async ({ request, fetch, cookies }) => {
+		const token = cookies.get('token');
+		const role = cookies.get('role');
+
+		if (!token || role !== 'ADMIN') {
+			return fail(401, {
+				action: 'assignMesa',
+				success: false,
+				error: 'No autorizado. Solo los administradores pueden realizar esta acción.'
+			});
+		}
+
+		const formData = await request.formData();
+		const dniPersonero = formData.get('dniPersonero') as string;
+		const numeroMesa = formData.get('numeroMesa') as string;
+
+		if (!dniPersonero || !numeroMesa) {
+			return fail(400, {
+				action: 'assignMesa',
+				success: false,
+				error: 'El DNI del personero y el número de mesa son obligatorios.'
+			});
+		}
+
+		try {
+			const response = await fetch(`${API_URL}/asignar-mesa`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ dniPersonero, numeroMesa })
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				const apiErrorMsg = errorData.error || errorData.detail || 'Error al asignar la mesa.';
+				return fail(response.status, {
+					action: 'assignMesa',
+					success: false,
+					error: apiErrorMsg
+				});
+			}
+
+			const data = await response.json();
+			return { action: 'assignMesa', success: true, message: data.message };
+		} catch (error) {
+			return fail(500, {
+				action: 'assignMesa',
+				success: false,
+				error: error instanceof Error ? error.message : 'Error de conexión con la API.'
+			});
+		}
+	},
+
+	// ======================================================
 	// SUBIR archivo nuevo
 	// ======================================================
 	upload: async ({ request, fetch, cookies }) => {
