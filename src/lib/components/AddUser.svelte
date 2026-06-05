@@ -15,7 +15,9 @@
 	// --- Lógica de Ubigeo ---
 	interface Ubigeo {
 		cod_ubigeo?: string;
-		codUbigeo?: string; // Por si el API usa camelCase
+		codUbigeo?: string; // Si el API usa camelCase
+		CodUbigeo?: string; // Si el API usa PascalCase (C#)
+		COD_UBIGEO?: string; // Si el API usa MAYÚSCULAS
 		departamento: string;
 		provincia: string;
 		distrito: string;
@@ -50,7 +52,11 @@
 	$effect(() => {
 		fetch('https://drivecrud-269414280318.europe-west1.run.app/ubigeo')
 			.then((res) => res.json())
-			.then((data) => (ubigeos = data))
+			.then((data) => {
+				// 🐛 DEBUG: Veamos exactamente cómo se llama la columna que manda C#
+				console.log('=== ESTRUCTURA DE UBIGEO DESDE LA API ===', data[0]);
+				ubigeos = data;
+			})
 			.catch((err) => console.error('Error cargando ubigeos:', err));
 	});
 </script>
@@ -191,7 +197,9 @@
 				>
 					<option value="">Seleccione...</option>
 					{#each distritos as dist (dist)}
-						<option value={dist.cod_ubigeo || dist.codUbigeo}>{dist.distrito}</option>
+						<option value={dist.cod_ubigeo || dist.codUbigeo || dist.CodUbigeo || dist.COD_UBIGEO}>
+							{dist.distrito}
+						</option>
 					{/each}
 				</select>
 				<input type="hidden" name="codUbigeo" value={selectedCodUbigeo} required />
