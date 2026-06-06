@@ -9,24 +9,39 @@ const API_URL = 'https://drivecrud-269414280318.europe-west1.run.app';
 export const load: PageServerLoad = async ({ fetch, cookies }) => {
 	const token = cookies.get('token');
 	const role = cookies.get('role');
+	const dni = cookies.get('dni');
 
 	if (!token) {
-		return { files: [], error: null, loggedIn: false, role: null };
+		return { files: [], error: null, loggedIn: false, role: null, token: null, dni: null };
 	}
 
 	try {
-		const response = await fetch(`${API_URL}/files`, {
-			headers: { Authorization: `Bearer ${token}` }
-		});
-		if (!response.ok) return { files: [], error: 'No se pudo cargar la lista de archivos.' };
-		const files = await response.json();
-		return { files, loggedIn: true, role: role || null };
+		let files = [];
+		// Solo cargamos los archivos si el usuario es ADMIN (ahorro de peticiones para personeros)
+		if (role === 'ADMIN') {
+			const response = await fetch(`${API_URL}/files`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (!response.ok)
+				return {
+					files: [],
+					error: 'No se pudo cargar la lista de archivos.',
+					loggedIn: true,
+					role,
+					token,
+					dni
+				};
+			files = await response.json();
+		}
+		return { files, loggedIn: true, role: role || null, token, dni };
 	} catch {
 		return {
 			files: [],
 			error: 'Error de conexión al cargar archivos.',
 			loggedIn: true,
-			role: role || null
+			role: role || null,
+			token,
+			dni
 		};
 	}
 };
@@ -88,6 +103,15 @@ export const actions: Actions = {
 				maxAge: 60 * 60 * 8
 			});
 
+			// Guardar el DNI en una cookie para consultarlo en la UI
+			cookies.set('dni', dni.toString(), {
+				path: '/',
+				httpOnly: true,
+				secure: true,
+				sameSite: 'strict',
+				maxAge: 60 * 60 * 8
+			});
+
 			return { action: 'login', success: true, usuario: result.usuario };
 		} catch (error) {
 			return fail(500, {
@@ -104,6 +128,7 @@ export const actions: Actions = {
 	logout: async ({ cookies }) => {
 		cookies.delete('token', { path: '/' });
 		cookies.delete('role', { path: '/' });
+		cookies.delete('dni', { path: '/' });
 		return { action: 'logout', success: true };
 	},
 	// ======================================================
