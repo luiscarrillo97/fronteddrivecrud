@@ -42,6 +42,13 @@
 	let loading = $state(true);
 	let errorMesas = $state('');
 
+	// Estados para Registrar Votos
+	let mesaSeleccionada = $state<any>(null);
+	let showModalResultados = $state(false);
+	let votosA = $state(0);
+	let votosB = $state(0);
+	let totalVotantes = $state(0);
+
 	// Al montar el componente, fetch de mesas si NO es admin
 	$effect(() => {
 		if (data.loggedIn && data.role !== 'ADMIN' && data.token && data.dni) {
@@ -115,6 +122,59 @@
 			}
 		} catch (error) {
 			console.error('❌ Error de red al subir PDF:', error);
+		}
+	}
+
+	// ======================================================
+	// REGISTRAR VOTOS DEL ACTA (Personero)
+	// ======================================================
+	function abrirModalVotos(mesa: any) {
+		mesaSeleccionada = mesa;
+		votosA = mesa.candidato_a || 0;
+		votosB = mesa.candidato_b || 0;
+		totalVotantes = mesa.numero_votantes || 0;
+		showModalResultados = true;
+	}
+
+	async function guardarResultados() {
+		if (!data.token || !mesaSeleccionada) return;
+
+		try {
+			const response = await fetch(
+				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${data.token}`
+					},
+					body: JSON.stringify({
+						numeroMesa: mesaSeleccionada.numero_mesa,
+						candidatoA: votosA,
+						candidatoB: votosB,
+						numeroVotantes: totalVotantes
+					})
+				}
+			);
+
+			if (response.ok) {
+				// Actualizar reactivamente
+				mesas = mesas.map((m) =>
+					m.numero_mesa === mesaSeleccionada.numero_mesa
+						? {
+								...m,
+								candidato_a: votosA,
+								candidato_b: votosB,
+								numero_votantes: totalVotantes,
+								estado_mesa: 'PROCESADA'
+							}
+						: m
+				);
+				showModalResultados = false;
+				mesaSeleccionada = null;
+			}
+		} catch (error) {
+			console.error('❌ Error al registrar votos:', error);
 		}
 	}
 </script>
@@ -197,6 +257,7 @@
 										<th class="px-4 py-3 text-center">Votantes</th>
 										<th class="px-4 py-3">Estado</th>
 										<th class="px-4 py-3 text-center">ACTA / PDF</th>
+										<th class="px-4 py-3 text-center">RESULTADOS</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-slate-200">
@@ -264,6 +325,25 @@
 													</div>
 												{/if}
 											</td>
+											<td class="px-4 py-3 text-center">
+												{#if mesa.estado_mesa === 'PROCESADA'}
+													<button
+														type="button"
+														onclick={() => abrirModalVotos(mesa)}
+														class="inline-flex cursor-pointer items-center justify-center rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-green-700"
+													>
+														Ver / Editar Votos
+													</button>
+												{:else}
+													<button
+														type="button"
+														onclick={() => abrirModalVotos(mesa)}
+														class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+													>
+														Registrar Votos
+													</button>
+												{/if}
+											</td>
 										</tr>
 									{/each}
 								</tbody>
@@ -284,4 +364,74 @@
 			modalName = '';
 		}}
 	/>
+
+	<!-- Modal de Resultados -->
+	{#if showModalResultados && mesaSeleccionada}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+		>
+			<div class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+				<h3 class="mb-4 text-lg font-bold text-slate-800">
+					Resultados Mesa {mesaSeleccionada.numero_mesa}
+				</h3>
+				<div class="space-y-4">
+					<div>
+						<label for="candidatoA" class="mb-1 block text-sm font-medium text-slate-700"
+							>Votos Candidato A</label
+						>
+						<input
+							type="number"
+							id="candidatoA"
+							min="0"
+							bind:value={votosA}
+							class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none sm:text-sm"
+						/>
+					</div>
+					<div>
+						<label for="candidatoB" class="mb-1 block text-sm font-medium text-slate-700"
+							>Votos Candidato B</label
+						>
+						<input
+							type="number"
+							id="candidatoB"
+							min="0"
+							bind:value={votosB}
+							class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none sm:text-sm"
+						/>
+					</div>
+					<div>
+						<label for="totalVotantes" class="mb-1 block text-sm font-medium text-slate-700"
+							>Total de Votantes</label
+						>
+						<input
+							type="number"
+							id="totalVotantes"
+							min="0"
+							bind:value={totalVotantes}
+							class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none sm:text-sm"
+						/>
+					</div>
+				</div>
+				<div class="mt-6 flex justify-end gap-3">
+					<button
+						type="button"
+						onclick={() => {
+							showModalResultados = false;
+							mesaSeleccionada = null;
+						}}
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+					>
+						Cancelar
+					</button>
+					<button
+						type="button"
+						onclick={guardarResultados}
+						class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+					>
+						Guardar
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 {/if}
