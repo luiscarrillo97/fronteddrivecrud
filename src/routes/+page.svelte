@@ -81,6 +81,42 @@
 			console.log('🔥 4. Proceso terminado. Loading en false.');
 		}
 	}
+
+	// ======================================================
+	// SUBIR PDF A DRIVE Y ENLAZAR A LA MESA (Personero)
+	// ======================================================
+	async function subirPdf(numeroMesa: string, file: File) {
+		if (!data.token) return;
+
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('numeroMesa', numeroMesa);
+
+		try {
+			console.log(`📤 Subiendo PDF para la mesa ${numeroMesa}...`);
+			const response = await fetch(
+				'https://drivecrud-269414280318.europe-west1.run.app/mesas/subir-pdf',
+				{
+					method: 'POST',
+					headers: { Authorization: `Bearer ${data.token}` }, // NO content-type
+					body: formData
+				}
+			);
+
+			if (response.ok) {
+				const result = await response.json();
+				console.log('✅ Subida exitosa:', result);
+				// Actualización reactiva (se re-renderizará la fila de la tabla automáticamente)
+				mesas = mesas.map((m) =>
+					m.numero_mesa === numeroMesa ? { ...m, archivo_drive_id: result.fileId } : m
+				);
+			} else {
+				console.error('❌ Error al subir el PDF:', await response.text());
+			}
+		} catch (error) {
+			console.error('❌ Error de red al subir PDF:', error);
+		}
+	}
 </script>
 
 {#if !data.loggedIn}
@@ -160,6 +196,7 @@
 										<th class="px-4 py-3">Distrito</th>
 										<th class="px-4 py-3 text-center">Votantes</th>
 										<th class="px-4 py-3">Estado</th>
+										<th class="px-4 py-3 text-center">ACTA / PDF</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-slate-200">
@@ -177,6 +214,55 @@
 												>
 													{mesa.estado_mesa || 'Pendiente'}
 												</span>
+											</td>
+											<td class="px-4 py-3 text-center">
+												{#if !mesa.archivo_drive_id}
+													<label
+														class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+													>
+														Subir PDF
+														<input
+															type="file"
+															accept=".pdf"
+															class="hidden"
+															onchange={(e) => {
+																const input = e.currentTarget;
+																const file = input.files?.[0];
+																if (file) subirPdf(mesa.numero_mesa, file);
+																input.value = ''; // Resetea para permitir subir el mismo archivo consecutivamente si fuese necesario
+															}}
+														/>
+													</label>
+												{:else}
+													<div class="flex flex-wrap items-center justify-center gap-2">
+														<button
+															type="button"
+															onclick={() => {
+																viewingFileId = mesa.archivo_drive_id;
+																modalName = 'Acta Mesa ' + mesa.numero_mesa;
+															}}
+															class="inline-flex cursor-pointer items-center justify-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+														>
+															Ver PDF
+														</button>
+														<label
+															class="inline-flex cursor-pointer items-center justify-center rounded-md bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-300"
+														>
+															Reemplazar
+															<input
+																type="file"
+																accept=".pdf"
+																class="hidden"
+																onchange={(e) => {
+																	const input = e.currentTarget;
+																	const file = input.files?.[0];
+																	if (file) subirPdf(mesa.numero_mesa, file);
+																	input.value = '';
+																}}
+															/>
+														</label>
+													</div>
+												{/if}
 											</td>
 										</tr>
 									{/each}
