@@ -303,7 +303,7 @@ export const actions: Actions = {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}`
 				},
-				body: JSON.stringify({ dniPersonero, numeroMesa })
+				body: JSON.stringify({ dni: dniPersonero, numeroMesa })
 			});
 
 			if (!response.ok) {
