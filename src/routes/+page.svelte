@@ -50,6 +50,9 @@
 	});
 
 	async function fetchMesas(dni: string, token: string) {
+		console.log('🔥 1. Iniciando petición para DNI:', dni);
+		// console.log("🔥 Token que se enviará:", token); // Descomenta esto solo si dudas del token
+
 		try {
 			const response = await fetch(
 				`https://drivecrud-269414280318.europe-west1.run.app/usuarios/${dni}/mesas`,
@@ -57,17 +60,25 @@
 					headers: { Authorization: `Bearer ${token}` }
 				}
 			);
+
+			console.log('🔥 2. Status de respuesta de la API:', response.status);
+
 			if (response.ok) {
 				mesas = await response.json();
+				console.log('🔥 3. Éxito. Datos recibidos y guardados en Svelte:', mesas);
 			} else if (response.status === 404) {
+				console.log('🔥 3. La API dice 404 (No se encontraron mesas para este DNI).');
 				mesas = []; // Usuario sin mesas asignadas
 			} else {
+				console.log('🔥 3. Error en la API:', response.statusText);
 				errorMesas = 'Error al cargar las mesas asignadas.';
 			}
-		} catch {
+		} catch (err) {
+			console.error('🔥 Error crítico de red o de código:', err);
 			errorMesas = 'Error de conexión al cargar las mesas.';
 		} finally {
 			loading = false;
+			console.log('🔥 4. Proceso terminado. Loading en false.');
 		}
 	}
 </script>
