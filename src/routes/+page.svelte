@@ -4,7 +4,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import ListaMesas from '$lib/components/ListaMesas.svelte';
 	import PanelAdministrativo from '$lib/components/PanelAdministrativo.svelte';
-	// 🌟 IMPORTAMOS EL NUEVO COMPONENTE ZONAL 🌟
+
 	import ListaMesasZonal from '$lib/components/ListaMesasZonal.svelte';
 
 	let { data, form } = $props<{
@@ -23,7 +23,6 @@
 	let modalName = $state('');
 
 	// 🌟 LECTOR DE TOKEN ANTIBALAS 🌟
-	// Extrae el codUbigeo y el idLocal ocultos dentro del Token de forma segura
 	let datosUsuario = $derived.by(() => {
 		if (!data.token) return {};
 		try {
@@ -35,7 +34,7 @@
 		}
 	});
 
-	// 🚨 EL DETECTOR DE MENTIRAS (Revisa F12 -> Consola) 🚨
+	// 🚨 EL DETECTOR DE MENTIRAS 🚨
 	$effect(() => {
 		if (data.loggedIn) {
 			console.log('=== ENRUTADOR PRINCIPAL ===');
@@ -72,7 +71,12 @@
 
 			<Toast {form} dataError={data.error} />
 
+			<!-- ============================================== -->
+			<!-- 🚦 SEMÁFORO DE ENRUTAMIENTO POR ROLES 🚦 -->
+			<!-- ============================================== -->
+
 			{#if data.role === 'ADMIN' || data.role === 'NACIONAL' || data.role === 'SOPORTE'}
+				<!-- 1. PANEL GERENCIAL SUPREMO -->
 				<PanelAdministrativo
 					{form}
 					files={data.files}
@@ -96,6 +100,7 @@
 					/>
 				{/if}
 			{:else if data.role === 'PERSONERO'}
+				<!-- 3. PANEL DE MESA NORMAL -->
 				{#if data.dni && data.token}
 					<ListaMesas
 						dni={data.dni}
@@ -107,6 +112,7 @@
 					/>
 				{/if}
 			{:else}
+				<!-- 4. ROL DESCONOCIDO (Seguridad) -->
 				<div class="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-600">
 					<h2 class="text-lg font-bold">Acceso Restringido</h2>
 					<p>Su usuario no tiene un rol válido asignado. Contacte a soporte.</p>
