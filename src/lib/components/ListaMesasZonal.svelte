@@ -1,40 +1,47 @@
 <script lang="ts">
-	let {
-		token,
-		codUbigeo,
-		onViewPdf
-	}: {
-		token: string;
-		codUbigeo: string;
-		onViewPdf: (id: string, name: string) => void;
-	} = $props();
+    let {
+        token,
+        codUbigeo,
+        rolUsuario = '',
+        idLocalUsuario = null,
+        onViewPdf
+    }: {
+        token: string;
+        codUbigeo: string; 
+        rolUsuario?: string;
+        idLocalUsuario?: string | number | null;
+        onViewPdf: (id: string, name: string) => void;
+    } = $props();
 
-	// Estados para Locales
-	let locales = $state<any[]>([]);
-	let selectedLocal = $state<string | number>('');
-	let cargandoLocales = $state(false);
+    // Estados para Locales
+    let locales = $state<any[]>([]);
+    let selectedLocal = $state<string | number>('');
+    let cargandoLocales = $state(false);
 
-	// Estados para Mesas
-	let mesas = $state<any[]>([]);
-	let loadingMesas = $state(false);
-	let errorMesas = $state('');
+    // Estados para Mesas
+    let mesas = $state<any[]>([]);
+    let loadingMesas = $state(false);
+    let errorMesas = $state('');
 
-	// Estados para Votos y UI
-	let mesaSeleccionada = $state<any>(null);
-	let showModalResultados = $state(false);
-	let votosA = $state(0);
-	let votosB = $state(0);
-	let totalVotantes = $state(0);
-	let mesaSubiendo = $state<string | null>(null);
-	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
+    // Estados para Votos y UI
+    let mesaSeleccionada = $state<any>(null);
+    let showModalResultados = $state(false);
+    let votosA = $state(0);
+    let votosB = $state(0);
+    let totalVotantes = $state(0);
+    let mesaSubiendo = $state<string | null>(null);
+    let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
 
-	// 1. Cargar locales según la zona
-	$effect(() => {
-		if (codUbigeo) {
-			console.log('📍 Ubigeo del usuario detectado:', codUbigeo);
-			cargarLocales(codUbigeo);
-		}
-	});
+    // 1. LÓGICA INTELIGENTE: Decidir si mostrar selector o ir directo al local
+    $effect(() => {
+        if (rolUsuario === 'LOCAL' && idLocalUsuario) {
+            console.log("📍 Jefe de Local detectado. Asignando colegio directo ID:", idLocalUsuario);
+            selectedLocal = idLocalUsuario; // Esto dispara automáticamente la búsqueda de mesas
+        } else if (codUbigeo) {
+            console.log("📍 Jefe Zonal detectado:", codUbigeo);
+            cargarLocales(codUbigeo);
+        }
+    });
 
 	async function cargarLocales(ubigeo: string) {
 		cargandoLocales = true;
@@ -197,32 +204,56 @@
 		<label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700"
 			>Seleccione un Local de Votación en su Zona</label
 		>
-		<select
-			id="localSelect"
-			bind:value={selectedLocal}
-			disabled={cargandoLocales}
-			class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-		>
-			<option value="">-- Elija un colegio para ver las mesas --</option>
-			{#each locales as local (local.id_local ?? local.IdLocal ?? local.idLocal)}
-				<option value={local.id_local ?? local.IdLocal ?? local.idLocal}
-					>{local.nom_local ?? local.NomLocal ?? local.nomLocal}</option
-				>
-			{/each}
-		</select>
-	</div>
-</div>
+		<!-- ======================================================= -->
+<!-- SELECTOR DE LOCAL (Oculto si el usuario es rol LOCAL) -->
+<!-- ======================================================= -->
+{#if rolUsuario !== 'LOCAL'}
+    <div class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-4 text-xl font-bold text-slate-800">Panel Operativo Zonal</h2>
+        <div class="max-w-md">
+            <label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700">
+                Seleccione un Local de Votación en su Zona
+            </label>
+            <select
+                id="localSelect"
+                bind:value={selectedLocal}
+                disabled={cargandoLocales}
+                class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+                <option value="">-- Elija un colegio para ver las mesas --</option>
+                {#each locales as local (local.id_local ?? local.IdLocal ?? local.idLocal)}
+                    <option value={local.id_local ?? local.IdLocal ?? local.idLocal}>
+                        {local.nom_local ?? local.NomLocal ?? local.nomLocal}
+                    </option>
+                {/each}
+            </select>
+        </div>
+    </div>
+{/if}
 
+<!-- ======================================================= -->
+<!-- SECCIÓN DE MESAS Y TÍTULO DINÁMICO                      -->
+<!-- ======================================================= -->
 {#if selectedLocal}
-	<div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-		<h2 class="mb-4 text-xl font-bold text-slate-800">Mesas Operativas del Local</h2>
+    <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        
+        <!-- TÍTULO INTELIGENTE -->
+        <h2 class="mb-4 text-xl font-bold text-slate-800">
+            {#if rolUsuario === 'LOCAL' && mesas.length > 0}
+                Mi Local Asignado: {mesas[0].LocalVotacion ?? mesas[0].localVotacion ?? mesas[0].local_votacion ?? 'Colegio'}
+            {:else if rolUsuario === 'LOCAL'}
+                Mesas de Mi Local Asignado
+            {:else}
+                Mesas Operativas del Local
+            {/if}
+        </h2>
 
-		{#if loadingMesas}
-			<div class="flex justify-center p-8">
-				<span class="animate-pulse text-sm font-medium text-slate-500"
-					>Consultando mesas con la base de datos...</span
-				>
-			</div>
+        {#if loadingMesas}
+            <div class="flex justify-center p-8">
+                <span class="animate-pulse text-sm font-medium text-slate-500">
+                    Consultando mesas con la base de datos...
+                </span>
+            </div>
 		{:else if errorMesas}
 			<div class="rounded-md bg-red-50 p-4 text-red-600">{errorMesas}</div>
 		{:else if mesas.length === 0}
