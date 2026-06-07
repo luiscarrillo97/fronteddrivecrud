@@ -80,7 +80,7 @@
 			}
 
 			const response = await fetch(
-				`https://drivecrud-269414280318.europe-west1.run.app/locales/${prefijoUbigeo}`
+				`https://drivecrud-269414280318.europe-west1.run.app/locales/zonal/${prefijoUbigeo}`
 			);
 			if (response.ok) {
 				localesRaw = await response.json(); // Guardamos en localesRaw
