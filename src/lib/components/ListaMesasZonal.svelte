@@ -131,14 +131,19 @@
 
 	async function guardarResultados() {
 		if (!token || !mesaSeleccionada) return;
+
 		try {
+			// Asegúrate de que la ruta sea la correcta para el rol ZONAL
 			const response = await fetch(
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
 				{
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`
+					},
 					body: JSON.stringify({
-						numeroMesa: mesaSeleccionada.numeroMesa,
+						numeroMesa: mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa,
 						candidatoA: votosA,
 						candidatoB: votosB,
 						numeroVotantes: totalVotantes
@@ -147,8 +152,10 @@
 			);
 
 			if (response.ok) {
+				// Actualizamos el estado local de la lista
 				mesas = mesas.map((m) =>
-					m.numeroMesa === mesaSeleccionada.numeroMesa
+					(m.numeroMesa ?? m.numero_mesa) ===
+					(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
 						? {
 								...m,
 								candidatoA: votosA,
@@ -158,11 +165,18 @@
 							}
 						: m
 				);
+
 				showModalResultados = false;
 				mesaSeleccionada = null;
+				mensajeToast = { texto: 'Resultados registrados con éxito', tipo: 'exito' };
+			} else {
+				throw new Error('Error en el servidor al guardar.');
 			}
 		} catch (error) {
 			console.error('Error al registrar votos:', error);
+			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
+		} finally {
+			setTimeout(() => (mensajeToast = null), 3000);
 		}
 	}
 </script>
