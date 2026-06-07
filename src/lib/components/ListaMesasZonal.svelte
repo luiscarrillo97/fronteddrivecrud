@@ -250,9 +250,9 @@
 					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 				>
 					<option value="">-- Elija un colegio --</option>
-					{#each localesFiltrados as local (local.IdLocal ?? local.id_local)}
-						<option value={local.IdLocal ?? local.id_local}>
-							{local.NomLocal ?? local.nom_local}
+					{#each localesFiltrados as local (local.idLocal ?? local.IdLocal ?? local.id_local)}
+						<option value={local.idLocal ?? local.IdLocal ?? local.id_local}>
+							{local.nomLocal ?? local.NomLocal ?? local.nom_local}
 						</option>
 					{/each}
 				</select>
