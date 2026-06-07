@@ -124,6 +124,7 @@
 	<PdfModal
 		{viewingFileId}
 		{modalName}
+		token={data.token}
 		onClose={() => {
 			viewingFileId = null;
 			modalName = '';

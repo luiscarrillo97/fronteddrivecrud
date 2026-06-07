@@ -1,42 +1,94 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 
-	let { viewingFileId, modalName, onClose } = $props<{
+	let { viewingFileId, modalName, token, onClose } = $props<{
 		viewingFileId: string | null;
 		modalName: string;
+		token: string | null;
 		onClose: () => void;
 	}>();
 
-	// Estado para saber si estamos en celular
-	let isMobile = $state(false);
+	let canvasElement = $state<HTMLCanvasElement | null>(null);
+	let cargando = $state(false);
+	let errorMsg = $state('');
 
-	// 1. Detectamos el tamaño de la pantalla
-	$effect(() => {
-		if (typeof window !== 'undefined') {
-			// Si el ancho es menor a 768px, asumimos que es un dispositivo móvil
-			isMobile = window.innerWidth < 768;
+	// Función que carga el motor de PDF.js desde CDN solo cuando es necesario
+	async function cargarPdfJsLib() {
+		if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
 
-			const handleResize = () => {
-				isMobile = window.innerWidth < 768;
+		return new Promise((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
+			script.onload = () => {
+				const lib = (window as any).pdfjsLib;
+				lib.GlobalWorkerOptions.workerSrc =
+					'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+				resolve(lib);
 			};
-			window.addEventListener('resize', handleResize);
-			return () => window.removeEventListener('resize', handleResize);
+			script.onerror = () => reject('No se pudo cargar el motor del visor.');
+			document.head.appendChild(script);
+		});
+	}
+
+	// Efecto: Cuando el modal se abre y tenemos el token, renderiza
+	$effect(() => {
+		if (viewingFileId && token && canvasElement) {
+			// Usamos setTimeout para asegurar que el DOM esté listo y el canvasElement exista
+			setTimeout(() => renderizarPdfSeguro(viewingFileId!, token!), 100);
 		}
 	});
 
-	// 2. Lógica Inteligente para la URL del Iframe
-	let iframeUrl = $derived.by(() => {
-		if (!viewingFileId) return '';
+	async function renderizarPdfSeguro(fileId: string, authToken: string) {
+		cargando = true;
+		errorMsg = '';
 
-		if (isMobile) {
-			// MODO CELULAR: Usamos el visor nativo de Google Docs (transforma el PDF a web)
-			const directDownloadLink = `https://drive.google.com/uc?export=download&id=${viewingFileId}`;
-			return `https://docs.google.com/gview?url=${encodeURIComponent(directDownloadLink)}&embedded=true`;
-		} else {
-			// MODO PC: Usamos el preview clásico de Google Drive (el de la barra negra)
-			return `https://drive.google.com/file/d/${viewingFileId}/preview`;
+		try {
+			const pdfjsLib = await cargarPdfJsLib();
+
+			const response = await fetch(
+				`https://drivecrud-269414280318.europe-west1.run.app/mesas/pdf/${fileId}`,
+				{
+					headers: { Authorization: `Bearer ${authToken}` }
+				}
+			);
+
+			if (!response.ok) throw new Error('No tiene permisos para ver este archivo o no existe.');
+
+			const blob = await response.blob();
+			const objectUrl = URL.createObjectURL(blob);
+
+			const loadingTask = pdfjsLib.getDocument(objectUrl);
+			const pdf = await loadingTask.promise;
+
+			const page = await pdf.getPage(1);
+
+			if (!canvasElement) return;
+
+			const contenedorAncho = canvasElement.parentElement?.clientWidth || 350;
+			const viewportOriginal = page.getViewport({ scale: 1 });
+			const escalaOptima = contenedorAncho / viewportOriginal.width;
+			const viewport = page.getViewport({ scale: escalaOptima * 0.95 });
+
+			const context = canvasElement.getContext('2d');
+			if (context) {
+				canvasElement.height = viewport.height;
+				canvasElement.width = viewport.width;
+
+				const renderContext = {
+					canvasContext: context,
+					viewport: viewport
+				};
+				await page.render(renderContext).promise;
+			}
+
+			URL.revokeObjectURL(objectUrl);
+		} catch (err: any) {
+			console.error('Error al procesar el acta segura:', err);
+			errorMsg = err.message || 'Error crítico al renderizar el documento.';
+		} finally {
+			cargando = false;
 		}
-	});
+	}
 </script>
 
 {#if viewingFileId}
@@ -45,15 +97,15 @@
 		transition:fade={{ duration: 200 }}
 	>
 		<div
-			class="flex h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+			class="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
 			transition:scale={{ duration: 200, start: 0.95 }}
 		>
 			<div
 				class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3"
 			>
 				<div class="flex items-center gap-2">
-					<span class="text-lg">📄</span>
-					<h3 class="line-clamp-1 font-bold text-slate-800">{modalName}</h3>
+					<span class="text-lg">🛡️</span>
+					<h3 class="line-clamp-1 font-bold text-slate-800">{modalName} (Vista Protegida)</h3>
 				</div>
 				<button
 					type="button"
@@ -64,13 +116,32 @@
 				</button>
 			</div>
 
-			<div class="relative h-full w-full flex-1 bg-slate-200">
-				<iframe
-					src={iframeUrl}
-					title="Visor de PDF"
-					class="absolute inset-0 h-full w-full border-none"
-					allow="autoplay"
-				></iframe>
+			<div class="relative flex flex-1 items-start justify-center overflow-y-auto bg-slate-700 p-4">
+				{#if cargando}
+					<div
+						class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-800 text-white"
+					>
+						<div
+							class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
+						></div>
+						<span class="text-sm font-medium">Validando credenciales y descargando acta...</span>
+					</div>
+				{/if}
+
+				{#if errorMsg}
+					<div
+						class="m-auto max-w-md rounded-md border border-red-500 bg-red-900/50 p-4 text-center text-red-200"
+					>
+						<p class="font-bold">Error de Acceso</p>
+						<p class="mt-1 text-sm">{errorMsg}</p>
+					</div>
+				{/if}
+
+				<canvas
+					bind:this={canvasElement}
+					class="rounded-sm bg-white shadow-lg"
+					class:hidden={cargando || errorMsg}
+				></canvas>
 			</div>
 		</div>
 	</div>
