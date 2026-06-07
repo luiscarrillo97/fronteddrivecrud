@@ -19,16 +19,24 @@
 	let selectedLocal = $state<string | number>(''); // Colegio seleccionado
 	let cargandoLocales = $state(false);
 
-	// 🌟 MAGIA REACTIVA: Extrae distritos únicos automáticamente
+	// 🌟 MAGIA REACTIVA: Extrae distritos únicos (limpiando espacios invisibles)
 	let distritosDisponibles = $derived.by(() => {
-		const distritos = localesRaw.map((l) => l.distrito || l.Distrito).filter(Boolean);
-		return [...new Set(distritos)].sort(); // Quita duplicados y ordena alfabéticamente
+		const distritos = localesRaw
+			.map((l) => {
+				const d = l.distrito || l.Distrito || l.DISTRITO;
+				return d ? d.toString().trim() : null; // .trim() elimina los espacios extra
+			})
+			.filter(Boolean);
+		return [...new Set(distritos)].sort();
 	});
 
-	// 🌟 MAGIA REACTIVA: Filtra locales según el distrito
+	// 🌟 MAGIA REACTIVA: Filtra locales asegurando una coincidencia exacta y limpia
 	let localesFiltrados = $derived.by(() => {
 		if (!selectedDistrito) return localesRaw;
-		return localesRaw.filter((l) => (l.distrito || l.Distrito) === selectedDistrito);
+		return localesRaw.filter((l) => {
+			const d = l.distrito || l.Distrito || l.DISTRITO;
+			return d && d.toString().trim() === selectedDistrito.trim();
+		});
 	});
 
 	let mesas = $state<any[]>([]);
@@ -251,9 +259,13 @@
 				>
 					<option value="">-- Elija un colegio --</option>
 
-					{#each localesFiltrados as local, i (local.id_local || local.idLocal || local.IdLocal || i)}
-						<option value={local.id_local || local.idLocal || local.IdLocal}>
-							{local.nom_local || local.nomLocal || local.NomLocal}
+					{#each localesFiltrados as local, i (local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL || i)}
+						<option value={local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL}>
+							{local.nom_local ||
+								local.nomLocal ||
+								local.NomLocal ||
+								local.NOM_LOCAL ||
+								'Sin nombre'}
 						</option>
 					{/each}
 				</select>
