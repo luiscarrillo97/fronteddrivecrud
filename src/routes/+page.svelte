@@ -53,10 +53,21 @@
 	let mesaSubiendo = $state<string | null>(null);
 	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
 
+	// Estados para el Dashboard (Admin / Coordinador)
+	let mesasRegion = $state<any[]>([]);
+	let cargandoMesas = $state(true);
+	let mostrarModalDetalle = $state(false);
+	let mesaSeleccionadaDetalle = $state(''); // Se renombra para evitar colisión con 'mesaSeleccionada' de los votos
+	let personerosMesa = $state<any[]>([]);
+
 	// Al montar el componente, fetch de mesas si NO es admin
 	$effect(() => {
-		if (data.loggedIn && data.role !== 'ADMIN' && data.token && data.dni) {
-			fetchMesas(data.dni, data.token);
+		if (data.loggedIn && data.token) {
+			if (data.role !== 'ADMIN' && data.role !== 'COORDINADOR' && data.dni) {
+				fetchMesas(data.dni, data.token);
+			} else if (data.role === 'ADMIN' || data.role === 'COORDINADOR') {
+				fetchMesasRegion(data.token);
+			}
 		}
 	});
 
@@ -137,6 +148,46 @@
 			setTimeout(() => {
 				mensajeToast = null;
 			}, 3000);
+		}
+	}
+
+	// ======================================================
+	// DASHBOARD: CARGAR MESAS Y PERSONEROS
+	// ======================================================
+	async function fetchMesasRegion(token: string) {
+		try {
+			const response = await fetch(
+				'https://drivecrud-269414280318.europe-west1.run.app/admin/mesas-region',
+				{
+					headers: { Authorization: `Bearer ${token}` }
+				}
+			);
+			if (response.ok) {
+				mesasRegion = await response.json();
+			} else {
+				console.error('Error al cargar mesas de la región');
+			}
+		} catch (error) {
+			console.error('Error de conexión:', error);
+		} finally {
+			cargandoMesas = false;
+		}
+	}
+
+	async function abrirDetalle(numeroMesa: string) {
+		if (!data.token) return;
+		try {
+			const response = await fetch(
+				`https://drivecrud-269414280318.europe-west1.run.app/mesas/${numeroMesa}/personeros`,
+				{ headers: { Authorization: `Bearer ${data.token}` } }
+			);
+			if (response.ok) {
+				personerosMesa = await response.json();
+				mesaSeleccionadaDetalle = numeroMesa;
+				mostrarModalDetalle = true;
+			}
+		} catch (error) {
+			console.error('Error al cargar detalle de personeros:', error);
 		}
 	}
 
@@ -235,6 +286,71 @@
 				</div>
 			{/if}
 
+			{#if data.role === 'ADMIN' || data.role === 'COORDINADOR'}
+				<!-- ============================================== -->
+				<!-- PANEL DE CONTROL (DASHBOARD) -->
+				<!-- ============================================== -->
+				<div class="mb-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+					<h2 class="mb-4 text-xl font-bold text-slate-800">
+						Panel de Control - Mesas de la Región
+					</h2>
+
+					{#if cargandoMesas}
+						<div class="flex justify-center p-8">
+							<span class="text-sm font-medium text-slate-500">Cargando reporte de mesas...</span>
+						</div>
+					{:else}
+						<div class="overflow-x-auto">
+							<table class="w-full text-left text-sm text-slate-600">
+								<thead class="bg-slate-100 text-xs font-semibold text-slate-700 uppercase">
+									<tr>
+										<th class="px-4 py-3">Distrito</th>
+										<th class="px-4 py-3">Local de Votación</th>
+										<th class="px-4 py-3 text-center">Nº Mesa</th>
+										<th class="px-4 py-3 text-center">Cantidad Personeros</th>
+										<th class="px-4 py-3 text-center">Acción</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-slate-200">
+									{#each mesasRegion as mesa (mesa.numeroMesa || mesa.numero_mesa)}
+										<tr class="transition-colors hover:bg-slate-50">
+											<td class="px-4 py-3">{mesa.distrito || mesa.Distrito || '-'}</td>
+											<td class="px-4 py-3">{mesa.local_votacion || mesa.localVotacion || '-'}</td>
+											<td class="px-4 py-3 text-center font-bold text-slate-900"
+												>{mesa.numeroMesa || mesa.numero_mesa}</td
+											>
+											<td class="px-4 py-3 text-center">
+												<span
+													class="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold {mesa.cantidadPersoneros >
+													0
+														? 'bg-emerald-100 text-emerald-700'
+														: 'bg-red-50 text-red-600'}"
+												>
+													{mesa.cantidadPersoneros || 0}
+												</span>
+											</td>
+											<td class="px-4 py-3 text-center">
+												{#if !mesa.cantidadPersoneros || mesa.cantidadPersoneros === 0}
+													<span class="text-xs font-medium text-slate-400">Sin asignación</span>
+												{:else}
+													<button
+														type="button"
+														onclick={() => abrirDetalle(mesa.numeroMesa || mesa.numero_mesa)}
+														class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+													>
+														Ver Detalle
+													</button>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
 			{#if data.role === 'ADMIN'}
 				<!-- ============================================== -->
 				<!-- VISTA DE ADMINISTRADOR -->
@@ -254,7 +370,7 @@
 						modalName = name;
 					}}
 				/>
-			{:else}
+			{:else if data.role !== 'COORDINADOR'}
 				<!-- ============================================== -->
 				<!-- VISTA DE PERSONERO -->
 				<!-- ============================================== -->
@@ -463,6 +579,62 @@
 						class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
 					>
 						Guardar
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Modal de Detalle de Personeros -->
+	{#if mostrarModalDetalle}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm transition-opacity"
+		>
+			<div class="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+				<button
+					type="button"
+					onclick={() => (mostrarModalDetalle = false)}
+					class="absolute top-4 right-4 text-slate-400 transition-colors hover:text-slate-600"
+					aria-label="Cerrar"
+				>
+					<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+
+				<h3 class="mb-4 pr-8 text-lg font-bold text-slate-800">
+					Personeros en Mesa {mesaSeleccionadaDetalle}
+				</h3>
+
+				{#if personerosMesa.length === 0}
+					<p class="text-sm text-slate-500">
+						No hay personeros asignados a esta mesa en este momento.
+					</p>
+				{:else}
+					<ul class="divide-y divide-slate-100 border-y border-slate-100">
+						{#each personerosMesa as personero (personero.dni || personero.Dni)}
+							<li class="flex flex-col py-3 text-sm">
+								<span class="font-medium text-slate-800"
+									>{personero.nombres || personero.Nombres}</span
+								>
+								<span class="text-slate-500">DNI: {personero.dni || personero.Dni}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+
+				<div class="mt-6 flex justify-end">
+					<button
+						type="button"
+						onclick={() => (mostrarModalDetalle = false)}
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+					>
+						Cerrar
 					</button>
 				</div>
 			</div>
