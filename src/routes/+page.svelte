@@ -5,7 +5,7 @@
 	import ListaMesas from '$lib/components/ListaMesas.svelte';
 	import PanelAdministrativo from '$lib/components/PanelAdministrativo.svelte';
 	// 🌟 IMPORTAMOS EL NUEVO COMPONENTE ZONAL 🌟
-	import ListarMesaZonal from '$lib/components/ListarMesaZonal.svelte';
+	import ListaMesasZonal from '$lib/components/ListaMesasZonal.svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -83,7 +83,7 @@
 				/>
 			{:else if ['DEPARTAMENTAL', 'PROVINCIAL', 'DISTRITAL', 'LOCAL'].includes(data.role || '')}
 				{#if data.token}
-					<ListarMesaZonal
+					<ListaMesasZonal
 						token={data.token}
 						codUbigeo={datosUsuario?.CodUbigeo || ''}
 						onViewPdf={(id, name) => {
