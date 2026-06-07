@@ -37,7 +37,7 @@
 			<div class="flex items-start justify-between">
 				<div>
 					<h1 class="text-3xl font-extrabold tracking-tight text-slate-800">
-						📁 SISTEMA DE PERSONEROS v2
+						📁 SISTEMA DE PERSONEROS v3
 					</h1>
 					<p class="mt-1 text-sm text-slate-500">
 						Sube, visualiza, reemplaza y elimina archivos en Google Drive.
