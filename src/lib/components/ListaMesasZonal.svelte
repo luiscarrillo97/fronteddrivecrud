@@ -265,17 +265,43 @@
 	<div class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
 		<h2 class="mb-4 text-xl font-bold text-slate-800">Panel Operativo Zonal</h2>
 
-		<div class="grid gap-4 md:grid-cols-2">
+		<div
+			class="grid gap-4 {provinciasDisponibles.length > 1 ? 'md:grid-cols-3' : 'md:grid-cols-2'}"
+		>
+			{#if provinciasDisponibles.length > 1}
+				<div>
+					<label for="provinciaSelect" class="mb-1 block text-sm font-medium text-slate-700">
+						1. Provincia
+					</label>
+					<select
+						id="provinciaSelect"
+						bind:value={selectedProvincia}
+						disabled={cargandoLocales}
+						onchange={() => {
+							selectedDistrito = ''; // Reinicia el distrito
+							selectedLocal = ''; // Reinicia el local
+						}}
+						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+					>
+						<option value="">-- Todas las provincias --</option>
+						{#each provinciasDisponibles as provincia, i (i)}
+							<option value={provincia}>{provincia}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
+
 			{#if distritosDisponibles.length > 1}
 				<div>
 					<label for="distritoSelect" class="mb-1 block text-sm font-medium text-slate-700">
-						1. Filtrar por Distrito
+						{provinciasDisponibles.length > 1 ? '2. Distrito' : '1. Distrito'}
 					</label>
 					<select
 						id="distritoSelect"
 						bind:value={selectedDistrito}
-						disabled={cargandoLocales}
-						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+						disabled={cargandoLocales || (provinciasDisponibles.length > 1 && !selectedProvincia)}
+						onchange={() => (selectedLocal = '')}
+						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
 					>
 						<option value="">-- Todos los distritos --</option>
 						{#each distritosDisponibles as distrito, i (i)}
@@ -287,18 +313,19 @@
 
 			<div>
 				<label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700">
-					{distritosDisponibles.length > 1
-						? '2. Seleccione un Local'
-						: 'Seleccione un Local de Votación'}
+					{provinciasDisponibles.length > 1
+						? '3. Local de Votación'
+						: distritosDisponibles.length > 1
+							? '2. Local de Votación'
+							: 'Local de Votación'}
 				</label>
 				<select
 					id="localSelect"
 					bind:value={selectedLocal}
 					disabled={cargandoLocales || localesFiltrados.length === 0}
-					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
 				>
 					<option value="">-- Elija un colegio --</option>
-
 					{#each localesFiltrados as local, i (i)}
 						<option value={local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL}>
 							{local.nom_local ||
