@@ -49,6 +49,10 @@
 	let votosB = $state(0);
 	let totalVotantes = $state(0);
 
+	// Estados para UX al subir archivos
+	let mesaSubiendo = $state<string | null>(null);
+	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
+
 	// Al montar el componente, fetch de mesas si NO es admin
 	$effect(() => {
 		if (data.loggedIn && data.role !== 'ADMIN' && data.token && data.dni) {
@@ -95,6 +99,8 @@
 	async function subirPdf(numeroMesa: string, file: File) {
 		if (!data.token) return;
 
+		mesaSubiendo = numeroMesa;
+
 		const formData = new FormData();
 		formData.append('file', file);
 		formData.append('numeroMesa', numeroMesa);
@@ -117,11 +123,20 @@
 				mesas = mesas.map((m) =>
 					m.numero_mesa === numeroMesa ? { ...m, archivo_drive_id: result.fileId } : m
 				);
+				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
 				console.error('❌ Error al subir el PDF:', await response.text());
+				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
 			}
 		} catch (error) {
 			console.error('❌ Error de red al subir PDF:', error);
+			mensajeToast = { texto: 'Error de red al subir el acta', tipo: 'error' };
+		} finally {
+			mesaSubiendo = null;
+			// Ocultar el mensaje después de 3 segundos
+			setTimeout(() => {
+				mensajeToast = null;
+			}, 3000);
 		}
 	}
 
@@ -210,6 +225,16 @@
 			<!-- Toasts -->
 			<Toast {form} dataError={data.error} />
 
+			{#if mensajeToast}
+				<div
+					class="fixed top-4 right-4 z-50 rounded-md px-4 py-3 font-semibold text-white shadow-lg transition-all duration-300"
+					class:bg-emerald-500={mensajeToast.tipo === 'exito'}
+					class:bg-red-500={mensajeToast.tipo === 'error'}
+				>
+					{mensajeToast.texto}
+				</div>
+			{/if}
+
 			{#if data.role === 'ADMIN'}
 				<!-- ============================================== -->
 				<!-- VISTA DE ADMINISTRADOR -->
@@ -279,7 +304,14 @@
 												</span>
 											</td>
 											<td class="px-4 py-3 text-center">
-												{#if !mesa.archivo_drive_id}
+												{#if mesaSubiendo === mesa.numero_mesa}
+													<button
+														disabled
+														class="inline-flex cursor-wait items-center justify-center rounded-md bg-slate-400 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+													>
+														Espere, cargando acta...
+													</button>
+												{:else if !mesa.archivo_drive_id}
 													<label
 														class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
 													>
