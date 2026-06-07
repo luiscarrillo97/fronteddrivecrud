@@ -4,54 +4,61 @@
 	import Login from '$lib/components/Login.svelte';
 	import ListaMesas from '$lib/components/ListaMesas.svelte';
 	import PanelAdministrativo from '$lib/components/PanelAdministrativo.svelte';
+	// 🌟 IMPORTAMOS EL NUEVO COMPONENTE ZONAL 🌟
+	import ListarMesaZonal from '$lib/components/ListarMesaZonal.svelte';
 
 	let { data, form } = $props<{
 		data: {
-			files: {
-				id: string;
-				nombre: string;
-				tamano: number | null;
-				fecha: string | null;
-				link: string;
-			}[];
+			files: any[];
 			error?: string;
 			loggedIn: boolean;
 			role: string | null;
 			token: string | null;
 			dni: string | null;
 		};
-		form: {
-			action?: string;
-			success?: boolean;
-			error?: string;
-			message?: string;
-			fileName?: string;
-			usuario?: any;
-			nuevaContrasena?: string;
-		} | null;
+		form: any;
 	}>();
 
 	let viewingFileId = $state<string | null>(null);
 	let modalName = $state('');
+
+	// 🌟 LECTOR DE TOKEN ANTIBALAS 🌟
+	// Extrae el codUbigeo y el idLocal ocultos dentro del Token de forma segura
+	let datosUsuario = $derived.by(() => {
+		if (!data.token) return {};
+		try {
+			const base64Url = data.token.split('.')[1];
+			const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+			return JSON.parse(atob(base64));
+		} catch (e) {
+			return {};
+		}
+	});
+
+	// 🚨 EL DETECTOR DE MENTIRAS (Revisa F12 -> Consola) 🚨
+	$effect(() => {
+		if (data.loggedIn) {
+			console.log('=== ENRUTADOR PRINCIPAL ===');
+			console.log('1. Rol Principal:', data.role);
+			console.log('2. DNI:', data.dni);
+			console.log('3. CodUbigeo (Del Token):', datosUsuario?.CodUbigeo);
+			console.log('4. IdLocal (Del Token):', datosUsuario?.IdLocal);
+			console.log('===========================');
+		}
+	});
 </script>
 
 {#if !data.loggedIn}
 	<Login {form} />
 {:else}
-	<!-- ============================================== -->
-	<!-- VISTA PRINCIPAL (CRUD DRIVE) -->
-	<!-- ============================================== -->
 	<main class="min-h-screen bg-slate-50 px-4 py-10 font-sans">
 		<div class="mx-auto max-w-4xl space-y-8">
-			<!-- Cabecera -->
 			<div class="flex items-start justify-between">
 				<div>
 					<h1 class="text-3xl font-extrabold tracking-tight text-slate-800">
 						📁 SISTEMA DE PERSONEROS
 					</h1>
-					<p class="mt-1 text-sm text-slate-500">
-						Sube, visualiza, reemplaza y elimina archivos en Google Drive.
-					</p>
+					<p class="mt-1 text-sm text-slate-500">Plataforma de Control y Gestión Electoral</p>
 				</div>
 				<form method="POST" action="?/logout">
 					<button
@@ -63,40 +70,48 @@
 				</form>
 			</div>
 
-			<!-- Toasts Globales: Muestra mensajes de éxito o error que vienen del servidor -->
 			<Toast {form} dataError={data.error} />
 
-			<!-- ENRUTAMIENTO POR ROLES: Decide qué componente cargar -->
-			{#if data.role === 'ADMIN'}
+			{#if data.role === 'ADMIN' || data.role === 'NACIONAL' || data.role === 'SOPORTE'}
 				<PanelAdministrativo
 					{form}
 					files={data.files}
 					onViewPdf={(id, name) => {
-						// Abre el modal de PDF a pedido del Administrador
 						viewingFileId = id;
 						modalName = name;
 					}}
 				/>
-			{:else}
-				<!-- ============================================== -->
-				<!-- VISTA DE PERSONERO -->
-				<!-- ============================================== -->
-				{#if data.dni && data.token}
-					<ListaMesas
-						dni={data.dni}
+			{:else if ['DEPARTAMENTAL', 'PROVINCIAL', 'DISTRITAL', 'LOCAL'].includes(data.role || '')}
+				{#if data.token}
+					<ListarMesaZonal
 						token={data.token}
+						codUbigeo={datosUsuario?.CodUbigeo || ''}
 						onViewPdf={(id, name) => {
-							// Abre el modal de PDF a pedido del Personero
 							viewingFileId = id;
 							modalName = name;
 						}}
 					/>
 				{/if}
+			{:else if data.role === 'PERSONERO'}
+				{#if data.dni && data.token}
+					<ListaMesas
+						dni={data.dni}
+						token={data.token}
+						onViewPdf={(id, name) => {
+							viewingFileId = id;
+							modalName = name;
+						}}
+					/>
+				{/if}
+			{:else}
+				<div class="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-600">
+					<h2 class="text-lg font-bold">Acceso Restringido</h2>
+					<p>Su usuario no tiene un rol válido asignado. Contacte a soporte.</p>
+				</div>
 			{/if}
 		</div>
 	</main>
 
-	<!-- Modal PDF Compartido: Se deja aquí en la raíz para que ambos componentes (Admin/Personero) puedan usarlo sin duplicar código -->
 	<PdfModal
 		{viewingFileId}
 		{modalName}
