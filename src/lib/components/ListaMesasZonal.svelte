@@ -14,14 +14,36 @@
 	} = $props();
 
 	// 🌟 ESTADOS PARA EL FILTRO INTELIGENTE
-	let localesRaw = $state<any[]>([]); // Guarda TODOS los locales que devuelve la API
-	let selectedDistrito = $state<string>(''); // Distrito seleccionado en el nuevo filtro
-	let selectedLocal = $state<string | number>(''); // Colegio seleccionado
+	let localesRaw = $state<any[]>([]);
+	let selectedProvincia = $state<string>(''); // 👈 ¡Nuevo estado!
+	let selectedDistrito = $state<string>('');
+	let selectedLocal = $state<string | number>('');
 	let cargandoLocales = $state(false);
 
-	// 🌟 MAGIA REACTIVA: Extrae distritos únicos (limpios y en mayúsculas)
+	// 🌟 MAGIA 1: Extrae Provincias Únicas
+	let provinciasDisponibles = $derived.by(() => {
+		const provincias = localesRaw
+			.map((l) => {
+				const p = l.provincia || l.Provincia || l.PROVINCIA;
+				return p ? p.toString().trim().toUpperCase() : null;
+			})
+			.filter(Boolean);
+		return [...new Set(provincias)].sort();
+	});
+
+	// 🌟 MAGIA 2: Extrae Distritos (Filtrados por la Provincia seleccionada)
 	let distritosDisponibles = $derived.by(() => {
-		const distritos = localesRaw
+		let filtrados = localesRaw;
+		// Si eligió una provincia, filtramos los datos primero
+		if (selectedProvincia) {
+			filtrados = filtrados.filter((l) => {
+				const p = l.provincia || l.Provincia || l.PROVINCIA || '';
+				return p.toString().trim().toUpperCase() === selectedProvincia;
+			});
+		}
+
+		// Ahora extraemos los distritos de esos datos filtrados
+		const distritos = filtrados
 			.map((l) => {
 				const d = l.distrito || l.Distrito || l.DISTRITO;
 				return d ? d.toString().trim().toUpperCase() : null;
@@ -30,13 +52,25 @@
 		return [...new Set(distritos)].sort();
 	});
 
-	// 🌟 MAGIA REACTIVA: Filtra asegurando coincidencia exacta
+	// 🌟 MAGIA 3: Filtra Locales (Por Provincia y Distrito)
 	let localesFiltrados = $derived.by(() => {
-		if (!selectedDistrito) return localesRaw;
-		return localesRaw.filter((l) => {
-			const d = l.distrito || l.Distrito || l.DISTRITO || '';
-			return d.toString().trim().toUpperCase() === selectedDistrito.trim().toUpperCase();
-		});
+		let filtrados = localesRaw;
+
+		if (selectedProvincia) {
+			filtrados = filtrados.filter((l) => {
+				const p = l.provincia || l.Provincia || l.PROVINCIA || '';
+				return p.toString().trim().toUpperCase() === selectedProvincia;
+			});
+		}
+
+		if (selectedDistrito) {
+			filtrados = filtrados.filter((l) => {
+				const d = l.distrito || l.Distrito || l.DISTRITO || '';
+				return d.toString().trim().toUpperCase() === selectedDistrito;
+			});
+		}
+
+		return filtrados;
 	});
 
 	// 🌟 NUEVO EFECTO: Limpia el colegio al cambiar de distrito de forma segura
