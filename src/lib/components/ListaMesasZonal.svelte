@@ -230,7 +230,7 @@
 						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 					>
 						<option value="">-- Todos los distritos --</option>
-						{#each distritosDisponibles as distrito (distrito)}
+						{#each distritosDisponibles as distrito, i (distrito || i)}
 							<option value={distrito}>{distrito}</option>
 						{/each}
 					</select>
@@ -250,9 +250,10 @@
 					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 				>
 					<option value="">-- Elija un colegio --</option>
-					{#each localesFiltrados as local (local.idLocal ?? local.IdLocal ?? local.id_local)}
-						<option value={local.idLocal ?? local.IdLocal ?? local.id_local}>
-							{local.nomLocal ?? local.NomLocal ?? local.nom_local}
+
+					{#each localesFiltrados as local, i (local.id_local || local.idLocal || local.IdLocal || i)}
+						<option value={local.id_local || local.idLocal || local.IdLocal}>
+							{local.nom_local || local.nomLocal || local.NomLocal}
 						</option>
 					{/each}
 				</select>
