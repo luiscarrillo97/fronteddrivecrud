@@ -28,6 +28,11 @@
 	let selectedProvincia = $state('');
 	let selectedCodUbigeo = $state('');
 
+	// --- Lógica de Locales ---
+	let selectedTipoPersonero = $state('');
+	let locales = $state<any[]>([]);
+	let localSeleccionado = $state<number | null>(null);
+
 	// Derivamos las listas filtradas y únicas
 	let departamentos = $derived([...new Set(ubigeos.map((u) => u.departamento))].sort());
 	let provincias = $derived(
@@ -59,6 +64,21 @@
 			})
 			.catch((err) => console.error('Error cargando ubigeos:', err));
 	});
+
+	// Cargar locales dinámicamente si el ubigeo (distrito) tiene 6 dígitos
+	$effect(() => {
+		if (selectedCodUbigeo && selectedCodUbigeo.length === 6) {
+			fetch(`https://drivecrud-269414280318.europe-west1.run.app/locales/${selectedCodUbigeo}`)
+				.then((res) => res.json())
+				.then((data) => {
+					locales = data;
+				})
+				.catch((err) => console.error('Error cargando locales:', err));
+		} else {
+			locales = [];
+			localSeleccionado = null;
+		}
+	});
 </script>
 
 <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -74,6 +94,7 @@
 			console.log('Rol:', formData.get('rol'));
 			console.log('CodUbigeo (Oculto):', formData.get('codUbigeo'));
 			console.log('Tipo Personero:', formData.get('tipoPersonero'));
+			console.log('Id Local:', formData.get('idLocal'));
 			console.log('Celular:', formData.get('celular'));
 			console.log('==================================');
 
@@ -89,6 +110,8 @@
 					selectedDepartamento = '';
 					selectedProvincia = '';
 					selectedCodUbigeo = '';
+					selectedTipoPersonero = '';
+					localSeleccionado = null;
 
 					// Limpiamos los inputs normales (DNI, Nombres, etc.)
 					const formElement = document.querySelector('form');
@@ -138,8 +161,15 @@
 				id="rol"
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			>
-				<option value="USER">Usuario (USER)</option>
-				<option value="ADMIN">Administrador (ADMIN)</option>
+				<option value="PERSONERO">Personero (PERSONERO)</option>
+
+				<option value="DEPARTAMENTAL">DEPARTAMENTAL (DEPARTAMENTAL)</option>
+				<option value="PROVINCIAL">PROVINCIAL (PROVINCIA)</option>
+				<option value="DISTRITAL">DISTRITAL (DISTRITAL)</option>
+				<option value="LOCAL">LOCAL (LOCAL)</option>
+				<option value="NACIONAL">NACIONAL (NACIONAL)</option>
+
+				<option value="SOPORTE">SOPORTE TECNICO (SOPORTE)</option>
 			</select>
 		</div>
 
@@ -212,6 +242,7 @@
 			<select
 				name="tipoPersonero"
 				id="tipoPersonero"
+				bind:value={selectedTipoPersonero}
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			>
 				<option value="">Seleccione un tipo...</option>
@@ -223,6 +254,26 @@
 				<option value="MESA">Mesa</option>
 			</select>
 		</div>
+
+		{#if selectedTipoPersonero === 'LOCAL' && locales.length > 0}
+			<div>
+				<label for="idLocal" class="mb-1 block text-sm font-medium text-slate-700"
+					>Local de Votación</label
+				>
+				<select
+					name="idLocal"
+					id="idLocal"
+					bind:value={localSeleccionado}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+				>
+					<option value="">Seleccione un local...</option>
+					{#each locales as local (local.id_local)}
+						<option value={local.id_local}>{local.nom_local}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
+
 		<div>
 			<label for="celular" class="mb-1 block text-sm font-medium text-slate-700">Celular</label>
 			<input

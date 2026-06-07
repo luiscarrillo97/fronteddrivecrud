@@ -152,6 +152,10 @@ export const actions: Actions = {
 		const tipoPersonero = formData.get('tipoPersonero') as string;
 		const celular = formData.get('celular') as string;
 
+		const idLocalStr = formData.get('idLocal') as string | null;
+		const idLocal =
+			idLocalStr && !isNaN(parseInt(idLocalStr, 10)) ? parseInt(idLocalStr, 10) : null;
+
 		// 1. Validaciones más estrictas para evitar que la BD explote
 		if (!dni || !contrasena) {
 			return fail(400, {
@@ -182,7 +186,16 @@ export const actions: Actions = {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${token}` // ¡Esto estaba perfecto!
 				},
-				body: JSON.stringify({ dni, nombres, contrasena, rol, codUbigeo, tipoPersonero, celular })
+				body: JSON.stringify({
+					dni,
+					nombres,
+					contrasena,
+					rol,
+					codUbigeo,
+					tipoPersonero,
+					celular,
+					idLocal
+				})
 			});
 
 			if (!response.ok) {
