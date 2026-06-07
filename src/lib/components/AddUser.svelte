@@ -27,16 +27,11 @@
 	let selectedDepartamento = $state('');
 	let selectedProvincia = $state('');
 	let selectedCodUbigeo = $state('');
-	let selectedTipoPersonero = $state('');
 
-	interface LocalVotacion {
-		idLocal?: number;
-		IdLocal?: number;
-		nomLocal?: string;
-		NomLocal?: string;
-	}
-	let locales = $state<LocalVotacion[]>([]);
-	let cargandoLocales = $state(false);
+	// --- Lógica de Locales ---
+	let selectedTipoPersonero = $state('');
+	let locales = $state<any[]>([]);
+	let localSeleccionado = $state<number | null>(null);
 
 	// Derivamos las listas filtradas y únicas
 	let departamentos = $derived([...new Set(ubigeos.map((u) => u.departamento))].sort());
@@ -70,24 +65,18 @@
 			.catch((err) => console.error('Error cargando ubigeos:', err));
 	});
 
-	// Efecto para buscar los locales de votación cuando es personero tipo LOCAL y hay ubigeo seleccionado
+	// Cargar locales dinámicamente si el ubigeo (distrito) tiene 6 dígitos
 	$effect(() => {
-		if (selectedTipoPersonero === 'LOCAL' && selectedCodUbigeo) {
-			cargandoLocales = true;
+		if (selectedCodUbigeo && selectedCodUbigeo.length === 6) {
 			fetch(`https://drivecrud-269414280318.europe-west1.run.app/locales/${selectedCodUbigeo}`)
 				.then((res) => res.json())
 				.then((data) => {
 					locales = data;
 				})
-				.catch((err) => {
-					console.error('Error cargando locales:', err);
-					locales = [];
-				})
-				.finally(() => {
-					cargandoLocales = false;
-				});
+				.catch((err) => console.error('Error cargando locales:', err));
 		} else {
 			locales = [];
+			localSeleccionado = null;
 		}
 	});
 </script>
@@ -105,6 +94,7 @@
 			console.log('Rol:', formData.get('rol'));
 			console.log('CodUbigeo (Oculto):', formData.get('codUbigeo'));
 			console.log('Tipo Personero:', formData.get('tipoPersonero'));
+			console.log('Id Local:', formData.get('idLocal'));
 			console.log('Celular:', formData.get('celular'));
 			console.log('==================================');
 
@@ -121,6 +111,7 @@
 					selectedProvincia = '';
 					selectedCodUbigeo = '';
 					selectedTipoPersonero = '';
+					localSeleccionado = null;
 
 					// Limpiamos los inputs normales (DNI, Nombres, etc.)
 					const formElement = document.querySelector('form');
@@ -170,8 +161,15 @@
 				id="rol"
 				class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
 			>
-				<option value="USER">Usuario (USER)</option>
-				<option value="ADMIN">Administrador (ADMIN)</option>
+				<option value="PERSONERO">Personero (PERSONERO)</option>
+
+				<option value="DEPARTAMENTAL">DEPARTAMENTAL (DEPARTAMENTAL)</option>
+				<option value="PROVINCIAL">PROVINCIAL (PROVINCIA)</option>
+				<option value="DISTRITAL">DISTRITAL (DISTRITAL)</option>
+				<option value="LOCAL">LOCAL (LOCAL)</option>
+				<option value="NACIONAL">NACIONAL (NACIONAL)</option>
+
+				<option value="SOPORTE">SOPORTE TECNICO (SOPORTE)</option>
 			</select>
 		</div>
 
@@ -257,30 +255,22 @@
 			</select>
 		</div>
 
-		{#if selectedTipoPersonero === 'LOCAL'}
-			<div class="sm:col-span-2">
+		{#if selectedTipoPersonero === 'LOCAL' && locales.length > 0}
+			<div>
 				<label for="idLocal" class="mb-1 block text-sm font-medium text-slate-700"
-					>Local de Votación *</label
+					>Local de Votación</label
 				>
-				{#if cargandoLocales}
-					<p class="text-sm text-slate-500">Cargando locales...</p>
-				{:else if locales.length === 0}
-					<p class="text-sm text-red-500">No se encontraron locales para este distrito.</p>
-				{:else}
-					<select
-						name="idLocal"
-						id="idLocal"
-						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
-						required
-					>
-						<option value="">Seleccione un local...</option>
-						{#each locales as local}
-							<option value={local.idLocal ?? local.IdLocal}
-								>{local.nomLocal || local.NomLocal}</option
-							>
-						{/each}
-					</select>
-				{/if}
+				<select
+					name="idLocal"
+					id="idLocal"
+					bind:value={localSeleccionado}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+				>
+					<option value="">Seleccione un local...</option>
+					{#each locales as local (local.id_local)}
+						<option value={local.id_local}>{local.nom_local}</option>
+					{/each}
+				</select>
 			</div>
 		{/if}
 
