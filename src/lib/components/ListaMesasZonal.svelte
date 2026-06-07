@@ -19,24 +19,31 @@
 	let selectedLocal = $state<string | number>(''); // Colegio seleccionado
 	let cargandoLocales = $state(false);
 
-	// 🌟 MAGIA REACTIVA: Extrae distritos únicos (limpiando espacios invisibles)
+	// 🌟 MAGIA REACTIVA: Extrae distritos únicos (limpios y en mayúsculas)
 	let distritosDisponibles = $derived.by(() => {
 		const distritos = localesRaw
 			.map((l) => {
 				const d = l.distrito || l.Distrito || l.DISTRITO;
-				return d ? d.toString().trim() : null; // .trim() elimina los espacios extra
+				return d ? d.toString().trim().toUpperCase() : null;
 			})
 			.filter(Boolean);
 		return [...new Set(distritos)].sort();
 	});
 
-	// 🌟 MAGIA REACTIVA: Filtra locales asegurando una coincidencia exacta y limpia
+	// 🌟 MAGIA REACTIVA: Filtra asegurando coincidencia exacta
 	let localesFiltrados = $derived.by(() => {
 		if (!selectedDistrito) return localesRaw;
 		return localesRaw.filter((l) => {
-			const d = l.distrito || l.Distrito || l.DISTRITO;
-			return d && d.toString().trim() === selectedDistrito.trim();
+			const d = l.distrito || l.Distrito || l.DISTRITO || '';
+			return d.toString().trim().toUpperCase() === selectedDistrito.trim().toUpperCase();
 		});
+	});
+
+	// 🌟 NUEVO EFECTO: Limpia el colegio al cambiar de distrito de forma segura
+	$effect(() => {
+		if (selectedDistrito !== undefined) {
+			selectedLocal = '';
+		}
 	});
 
 	let mesas = $state<any[]>([]);
@@ -234,11 +241,10 @@
 						id="distritoSelect"
 						bind:value={selectedDistrito}
 						disabled={cargandoLocales}
-						onchange={() => (selectedLocal = '')}
 						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 					>
 						<option value="">-- Todos los distritos --</option>
-						{#each distritosDisponibles as distrito, i (distrito || i)}
+						{#each distritosDisponibles as distrito, i (i)}
 							<option value={distrito}>{distrito}</option>
 						{/each}
 					</select>
@@ -259,13 +265,13 @@
 				>
 					<option value="">-- Elija un colegio --</option>
 
-					{#each localesFiltrados as local, i (local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL || i)}
+					{#each localesFiltrados as local, i (i)}
 						<option value={local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL}>
 							{local.nom_local ||
 								local.nomLocal ||
 								local.NomLocal ||
 								local.NOM_LOCAL ||
-								'Sin nombre'}
+								'Colegio sin nombre'}
 						</option>
 					{/each}
 				</select>
