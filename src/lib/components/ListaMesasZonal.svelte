@@ -13,9 +13,23 @@
 		onViewPdf: (id: string, name: string) => void;
 	} = $props();
 
-	let locales = $state<any[]>([]);
-	let selectedLocal = $state<string | number>('');
+	// 🌟 ESTADOS PARA EL FILTRO INTELIGENTE
+	let localesRaw = $state<any[]>([]); // Guarda TODOS los locales que devuelve la API
+	let selectedDistrito = $state<string>(''); // Distrito seleccionado en el nuevo filtro
+	let selectedLocal = $state<string | number>(''); // Colegio seleccionado
 	let cargandoLocales = $state(false);
+
+	// 🌟 MAGIA REACTIVA: Extrae distritos únicos automáticamente
+	let distritosDisponibles = $derived.by(() => {
+		const distritos = localesRaw.map((l) => l.distrito || l.Distrito).filter(Boolean);
+		return [...new Set(distritos)].sort(); // Quita duplicados y ordena alfabéticamente
+	});
+
+	// 🌟 MAGIA REACTIVA: Filtra locales según el distrito
+	let localesFiltrados = $derived.by(() => {
+		if (!selectedDistrito) return localesRaw;
+		return localesRaw.filter((l) => (l.distrito || l.Distrito) === selectedDistrito);
+	});
 
 	let mesas = $state<any[]>([]);
 	let loadingMesas = $state(false);
@@ -29,7 +43,7 @@
 	let mesaSubiendo = $state<string | null>(null);
 	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
 
-	// 1. LÓGICA INTELIGENTE DE INICIO
+	// 1. INICIO Y FILTRO DE UBIGEO
 	$effect(() => {
 		if (rolUsuario === 'LOCAL' && idLocalUsuario) {
 			selectedLocal = idLocalUsuario;
@@ -38,7 +52,6 @@
 		}
 	});
 
-	// 🌟 SUPERPODER 1: Filtro inteligente de Ubigeo
 	async function cargarLocales(ubigeoRaw: string) {
 		cargandoLocales = true;
 		try {
@@ -55,12 +68,12 @@
 				`https://drivecrud-269414280318.europe-west1.run.app/locales/${prefijoUbigeo}`
 			);
 			if (response.ok) {
-				locales = await response.json();
+				localesRaw = await response.json(); // Guardamos en localesRaw
 			} else {
-				locales = [];
+				localesRaw = [];
 			}
 		} catch (err) {
-			locales = [];
+			localesRaw = [];
 		} finally {
 			cargandoLocales = false;
 		}
@@ -202,23 +215,48 @@
 {#if rolUsuario !== 'LOCAL'}
 	<div class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
 		<h2 class="mb-4 text-xl font-bold text-slate-800">Panel Operativo Zonal</h2>
-		<div class="max-w-md">
-			<label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700">
-				Seleccione un Local de Votación en su Zona
-			</label>
-			<select
-				id="localSelect"
-				bind:value={selectedLocal}
-				disabled={cargandoLocales}
-				class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-			>
-				<option value="">-- Elija un colegio para ver las mesas --</option>
-				{#each locales as local (local.id_local ?? local.IdLocal ?? local.idLocal)}
-					<option value={local.id_local ?? local.IdLocal ?? local.idLocal}>
-						{local.nom_local ?? local.NomLocal ?? local.nomLocal}
-					</option>
-				{/each}
-			</select>
+
+		<div class="grid gap-4 md:grid-cols-2">
+			{#if distritosDisponibles.length > 1}
+				<div>
+					<label for="distritoSelect" class="mb-1 block text-sm font-medium text-slate-700">
+						1. Filtrar por Distrito
+					</label>
+					<select
+						id="distritoSelect"
+						bind:value={selectedDistrito}
+						disabled={cargandoLocales}
+						onchange={() => (selectedLocal = '')}
+						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+					>
+						<option value="">-- Todos los distritos --</option>
+						{#each distritosDisponibles as distrito (distrito)}
+							<option value={distrito}>{distrito}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
+
+			<div>
+				<label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700">
+					{distritosDisponibles.length > 1
+						? '2. Seleccione un Local'
+						: 'Seleccione un Local de Votación'}
+				</label>
+				<select
+					id="localSelect"
+					bind:value={selectedLocal}
+					disabled={cargandoLocales || localesFiltrados.length === 0}
+					class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+				>
+					<option value="">-- Elija un colegio --</option>
+					{#each localesFiltrados as local (local.IdLocal ?? local.id_local)}
+						<option value={local.IdLocal ?? local.id_local}>
+							{local.NomLocal ?? local.nom_local}
+						</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 	</div>
 {/if}
