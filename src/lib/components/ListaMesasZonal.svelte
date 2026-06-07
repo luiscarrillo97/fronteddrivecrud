@@ -178,9 +178,18 @@
 
 			if (response.ok) {
 				const result = await response.json();
+
+				// 🌟 CORRECCIÓN AQUÍ: Actualizamos la memoria blindando ambos nombres
 				mesas = mesas.map((m) =>
-					m.numeroMesa === numeroMesa ? { ...m, archivoDriveId: result.fileId } : m
+					(m.numeroMesa ?? m.numero_mesa) === numeroMesa
+						? {
+								...m,
+								archivoDriveId: result.fileId,
+								archivo_drive_id: result.fileId
+							}
+						: m
 				);
+
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
 				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
@@ -189,6 +198,60 @@
 			mensajeToast = { texto: 'Error de red al subir el acta', tipo: 'error' };
 		} finally {
 			mesaSubiendo = null;
+			setTimeout(() => (mensajeToast = null), 3000);
+		}
+	}
+
+	async function guardarResultados() {
+		if (!token || !mesaSeleccionada) return;
+
+		try {
+			const response = await fetch(
+				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`
+					},
+					body: JSON.stringify({
+						numeroMesa: mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa,
+						candidatoA: votosA,
+						candidatoB: votosB,
+						numeroVotantes: totalVotantes
+					})
+				}
+			);
+
+			if (response.ok) {
+				// 🌟 CORRECCIÓN AQUÍ: Actualizamos la memoria blindando ambos nombres
+				mesas = mesas.map((m) =>
+					(m.numeroMesa ?? m.numero_mesa) ===
+					(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
+						? {
+								...m,
+								candidatoA: votosA,
+								candidato_a: votosA,
+								candidatoB: votosB,
+								candidato_b: votosB,
+								numeroVotantes: totalVotantes,
+								numero_votantes: totalVotantes,
+								estadoMesa: 'PROCESADA',
+								estado_mesa: 'PROCESADA'
+							}
+						: m
+				);
+
+				showModalResultados = false;
+				mesaSeleccionada = null;
+				mensajeToast = { texto: 'Resultados registrados con éxito', tipo: 'exito' };
+			} else {
+				throw new Error('Error en el servidor al guardar.');
+			}
+		} catch (error) {
+			console.error('Error al registrar votos:', error);
+			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
+		} finally {
 			setTimeout(() => (mensajeToast = null), 3000);
 		}
 	}
