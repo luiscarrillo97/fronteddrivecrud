@@ -3,8 +3,13 @@
 		form,
 		dataError
 	}: {
-		form: any;
-		dataError?: string | null;
+		form: {
+			action?: string;
+			success?: boolean;
+			error?: string;
+			fileName?: string;
+		} | null;
+		dataError?: string;
 	} = $props();
 </script>
 

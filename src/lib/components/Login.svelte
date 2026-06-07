@@ -2,7 +2,12 @@
 	let {
 		form
 	}: {
-		form: any;
+		form: {
+			action?: string;
+			success?: boolean;
+			error?: string;
+			usuario?: any;
+		} | null;
 	} = $props();
 </script>
 
