@@ -29,7 +29,7 @@
 	let mesaSubiendo = $state<string | null>(null);
 	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
 
-	// 1. LÓGICA INTELIGENTE
+	// 1. LÓGICA INTELIGENTE DE INICIO
 	$effect(() => {
 		if (rolUsuario === 'LOCAL' && idLocalUsuario) {
 			selectedLocal = idLocalUsuario;
@@ -38,11 +38,21 @@
 		}
 	});
 
-	async function cargarLocales(ubigeo: string) {
+	// 🌟 SUPERPODER 1: Filtro inteligente de Ubigeo
+	async function cargarLocales(ubigeoRaw: string) {
 		cargandoLocales = true;
 		try {
+			let prefijoUbigeo = ubigeoRaw; // Por defecto usa los 6 (Distrital)
+
+			// Cortamos el ubigeo según el nivel de acceso
+			if (rolUsuario === 'DEPARTAMENTAL' && ubigeoRaw.length >= 2) {
+				prefijoUbigeo = ubigeoRaw.substring(0, 2);
+			} else if (rolUsuario === 'PROVINCIAL' && ubigeoRaw.length >= 4) {
+				prefijoUbigeo = ubigeoRaw.substring(0, 4);
+			}
+
 			const response = await fetch(
-				`https://drivecrud-269414280318.europe-west1.run.app/locales/${ubigeo}`
+				`https://drivecrud-269414280318.europe-west1.run.app/locales/${prefijoUbigeo}`
 			);
 			if (response.ok) {
 				locales = await response.json();
@@ -56,7 +66,7 @@
 		}
 	}
 
-	// 2. CARGAR MESAS
+	// 2. CARGAR MESAS POR LOCAL
 	$effect(() => {
 		if (selectedLocal && token) {
 			fetchMesasPorLocal(selectedLocal, token);
@@ -123,9 +133,9 @@
 
 	function abrirModalVotos(mesa: any) {
 		mesaSeleccionada = mesa;
-		votosA = mesa.candidatoA || 0;
-		votosB = mesa.candidatoB || 0;
-		totalVotantes = mesa.numeroVotantes || 0;
+		votosA = mesa.candidatoA || mesa.candidato_a || 0;
+		votosB = mesa.candidatoB || mesa.candidato_b || 0;
+		totalVotantes = mesa.numeroVotantes || mesa.numero_votantes || 0;
 		showModalResultados = true;
 	}
 
@@ -133,7 +143,6 @@
 		if (!token || !mesaSeleccionada) return;
 
 		try {
-			// Asegúrate de que la ruta sea la correcta para el rol ZONAL
 			const response = await fetch(
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
 				{
@@ -152,7 +161,6 @@
 			);
 
 			if (response.ok) {
-				// Actualizamos el estado local de la lista
 				mesas = mesas.map((m) =>
 					(m.numeroMesa ?? m.numero_mesa) ===
 					(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
@@ -265,36 +273,19 @@
 								>
 								<td class="px-4 py-3">
 									<span
-										class="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
+										class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
+										class:bg-red-100={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										class:text-red-800={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										class:bg-slate-200={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+										class:text-slate-700={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
 									>
 										{mesa.estadoMesa ?? mesa.estado_mesa ?? 'Pendiente'}
 									</span>
 								</td>
+
 								<td class="px-4 py-3 text-center">
-									{#if mesaSubiendo === (mesa.numeroMesa ?? mesa.numero_mesa)}
-										<button
-											disabled
-											class="inline-flex cursor-wait items-center rounded-md bg-slate-400 px-3 py-1 text-xs font-semibold text-white"
-											>Espere...</button
-										>
-									{:else if !(mesa.archivoDriveId ?? mesa.archivo_drive_id)}
-										<label
-											class="inline-flex cursor-pointer items-center rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
-										>
-											Subir PDF
-											<input
-												type="file"
-												accept=".pdf"
-												class="hidden"
-												onchange={(e) => {
-													const f = e.currentTarget.files?.[0];
-													if (f) subirPdf(mesa.numeroMesa ?? mesa.numero_mesa, f);
-													e.currentTarget.value = '';
-												}}
-											/>
-										</label>
-									{:else}
-										<div class="flex flex-wrap items-center justify-center gap-2">
+									<div class="flex flex-wrap items-center justify-center gap-2">
+										{#if mesa.archivoDriveId ?? mesa.archivo_drive_id}
 											<button
 												type="button"
 												onclick={() =>
@@ -305,26 +296,45 @@
 												class="inline-flex cursor-pointer items-center rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
 												>Ver PDF</button
 											>
-											<label
-												class="inline-flex cursor-pointer items-center rounded-md bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-											>
-												Reemplazar
-												<input
-													type="file"
-													accept=".pdf"
-													class="hidden"
-													onchange={(e) => {
-														const f = e.currentTarget.files?.[0];
-														if (f) subirPdf(mesa.numeroMesa ?? mesa.numero_mesa, f);
-														e.currentTarget.value = '';
-													}}
-												/>
-											</label>
-										</div>
-									{/if}
+										{/if}
+
+										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+											{#if mesaSubiendo === (mesa.numeroMesa ?? mesa.numero_mesa)}
+												<button
+													disabled
+													class="inline-flex cursor-wait items-center rounded-md bg-slate-400 px-3 py-1 text-xs font-semibold text-white"
+													>Espere...</button
+												>
+											{:else}
+												<label
+													class="hover:bg-opacity-80 inline-flex cursor-pointer items-center rounded-md px-3 py-1 text-xs font-semibold {(mesa.archivoDriveId ??
+													mesa.archivo_drive_id)
+														? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+														: 'bg-blue-600 text-white hover:bg-blue-700'}"
+												>
+													{(mesa.archivoDriveId ?? mesa.archivo_drive_id)
+														? 'Reemplazar'
+														: 'Subir PDF'}
+													<input
+														type="file"
+														accept=".pdf"
+														class="hidden"
+														onchange={(e) => {
+															const f = e.currentTarget.files?.[0];
+															if (f) subirPdf(mesa.numeroMesa ?? mesa.numero_mesa, f);
+															e.currentTarget.value = '';
+														}}
+													/>
+												</label>
+											{/if}
+										{/if}
+									</div>
 								</td>
+
 								<td class="px-4 py-3 text-center">
-									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'PROCESADA'}
+									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										<span class="text-xs font-bold text-slate-400">🔒 Solo Lectura</span>
+									{:else if (mesa.estadoMesa ?? mesa.estado_mesa) === 'PROCESADA'}
 										<button
 											type="button"
 											onclick={() => abrirModalVotos(mesa)}
@@ -359,21 +369,24 @@
 			</h3>
 			<div class="space-y-4">
 				<div>
-					<label class="mb-1 block text-sm font-medium">Votos Candidato A</label><input
+					<label class="mb-1 block text-sm font-medium">Votos Candidato A</label>
+					<input
 						type="number"
 						bind:value={votosA}
 						class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
 					/>
 				</div>
 				<div>
-					<label class="mb-1 block text-sm font-medium">Votos Candidato B</label><input
+					<label class="mb-1 block text-sm font-medium">Votos Candidato B</label>
+					<input
 						type="number"
 						bind:value={votosB}
 						class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
 					/>
 				</div>
 				<div>
-					<label class="mb-1 block text-sm font-medium">Total de Votantes</label><input
+					<label class="mb-1 block text-sm font-medium">Total de Votantes</label>
+					<input
 						type="number"
 						bind:value={totalVotantes}
 						class="block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
