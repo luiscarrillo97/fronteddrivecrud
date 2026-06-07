@@ -76,10 +76,16 @@
 			<!-- ============================================== -->
 
 			{#if data.role === 'ADMIN' || data.role === 'NACIONAL' || data.role === 'SOPORTE'}
-				<!-- 1. PANEL GERENCIAL SUPREMO -->
 				<PanelAdministrativo
 					{form}
 					files={data.files}
+					token={data.token}
+					<---
+					¡ESTA
+					ES
+					LA
+					LÍNEA
+					CLAVE!
 					onViewPdf={(id, name) => {
 						viewingFileId = id;
 						modalName = name;
