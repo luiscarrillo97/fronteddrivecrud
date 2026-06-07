@@ -82,21 +82,19 @@
 					}}
 				/>
 			{:else if ['DEPARTAMENTAL', 'PROVINCIAL', 'DISTRITAL', 'LOCAL'].includes(data.role || '')}
-                
-                <!-- 2. PANEL OPERATIVO ZONAL (El nuevo componente) -->
-                {#if data.token}
-                    <ListaMesasZonal 
-                        token={data.token}
-                        codUbigeo={datosUsuario?.CodUbigeo || ''}
-                        rolUsuario={data.role || ''}
-                        idLocalUsuario={datosUsuario?.IdLocal || null}
-                        onViewPdf={(id, name) => {
-                            viewingFileId = id;
-                            modalName = name;
-                        }}
-                    />
-                {/if}
-                {/if}
+				<!-- 2. PANEL OPERATIVO ZONAL (El nuevo componente) -->
+				{#if data.token}
+					<ListaMesasZonal
+						token={data.token}
+						codUbigeo={datosUsuario?.CodUbigeo || ''}
+						rolUsuario={data.role || ''}
+						idLocalUsuario={datosUsuario?.IdLocal || null}
+						onViewPdf={(id, name) => {
+							viewingFileId = id;
+							modalName = name;
+						}}
+					/>
+				{/if}
 			{:else if data.role === 'PERSONERO'}
 				{#if data.dni && data.token}
 					<ListaMesas
