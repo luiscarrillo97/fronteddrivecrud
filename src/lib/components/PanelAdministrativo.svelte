@@ -4,7 +4,7 @@
 	import AssignMesa from '$lib/components/AssignMesa.svelte';
 	import UploadForm from '$lib/components/UploadForm.svelte';
 	import FileTable from '$lib/components/FileTable.svelte';
-	import PanelAdminMesas from '$lib/components/PanelAdminMesas.svelte';
+	import ListaMesasSoporte from '$lib/components/ListaMesasSoporte.svelte';
 
 	let {
 		form,
@@ -24,7 +24,7 @@
 <AssignMesa {form} />
 
 <div class="my-6">
-	<PanelAdminMesas {token} />
+	<ListaMesasSoporte {token} codUbigeo="" rolUsuario="ADMIN" {onViewPdf} />
 </div>
 
 <UploadForm />
