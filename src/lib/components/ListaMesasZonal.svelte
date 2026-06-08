@@ -705,14 +705,15 @@
 					</div>
 				{:else}
 					<ul class="divide-y divide-slate-100">
-						{#each localesFiltrados as local, i (i)}
-							<option value={local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL}>
-								{local.nom_local ||
-									local.nomLocal ||
-									local.NomLocal ||
-									local.NOM_LOCAL ||
-									'Colegio sin nombre'}
-							</option>
+						{#each personerosAsignados as personero (personero.Dni ?? personero.dni)}
+							<li class="py-3">
+								<p class="text-sm font-semibold text-slate-800">
+									{personero.Nombres ?? personero.nombres}
+								</p>
+								<p class="text-xs text-slate-500">
+									DNI: {personero.Dni ?? personero.dni}
+								</p>
+							</li>
 						{/each}
 					</ul>
 				{/if}
