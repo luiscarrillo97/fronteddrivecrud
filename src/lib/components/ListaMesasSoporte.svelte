@@ -325,20 +325,29 @@
 			setTimeout(() => (mensajeToast = null), 3000);
 		}
 	}
-	// 🌟 FUNCIÓN ADMIN: BLOQUEAR / DESBLOQUEAR MESA
+
+	// 🌟 FUNCIÓN ADMIN: CERRAR / ABRIR MESA (Actualizada a CERRADA/PROCESADA)
 	async function toggleBloqueo(mesa: any) {
 		if (!token) return;
 
 		const numMesaStr = String(mesa.numeroMesa ?? mesa.numero_mesa);
-		const estaBloqueada = (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA';
-		const endpoint = estaBloqueada ? 'desbloquear' : 'bloquear';
-		const nuevoEstado = estaBloqueada ? 'PENDIENTE' : 'BLOQUEADA';
 
-		// Opcional: Confirmación antes de bloquear
+		// 🌟 EVALUACIÓN ACTUALIZADA: Evaluamos si está 'CERRADA' (o 'BLOQUEADA' por compatibilidad con datos viejos)
+		const estaCerrada =
+			(mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' ||
+			(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA';
+
+		// Si la mesa está cerrada, llamamos al endpoint 'desbloquear' (para abrirla). Si no, llamamos a 'bloquear' (para cerrarla).
+		const endpoint = estaCerrada ? 'desbloquear' : 'bloquear';
+
+		// 🌟 ESTADOS ACTUALIZADOS: Si estaba cerrada cambiará a 'PROCESADA' (abierta). Si estaba abierta cambiará a 'CERRADA'.
+		const nuevoEstado = estaCerrada ? 'PROCESADA' : 'CERRADA';
+
+		// Mensaje de confirmación dinámico y profesional
 		if (
-			!estaBloqueada &&
+			!estaCerrada &&
 			!confirm(
-				`¿Estás seguro de que deseas BLOQUEAR la mesa ${numMesaStr}? Ningún personero podrá subir actas ni registrar votos.`
+				`¿Estás seguro de que deseas CERRAR la mesa ${numMesaStr}? Ningún personero podrá modificar votos ni subir más actas.`
 			)
 		) {
 			return;
@@ -358,7 +367,7 @@
 			);
 
 			if (response.ok) {
-				// Actualizamos la memoria al instante
+				// Actualizamos la memoria al instante con los nuevos estados
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
 						? {
@@ -370,7 +379,7 @@
 				);
 
 				mensajeToast = {
-					texto: `Mesa ${estaBloqueada ? 'desbloqueada' : 'bloqueada'} con éxito`,
+					texto: `Mesa ${estaCerrada ? 'abierta' : 'cerrada'} con éxito`,
 					tipo: 'exito'
 				};
 			} else {
@@ -600,32 +609,30 @@
 								<td class="px-4 py-3">
 									<div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
 										<span
-											class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-											class:bg-red-100={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-											class:text-red-800={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-											class:bg-slate-200={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
-											class:text-slate-700={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+											class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold
+                                {(mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' ||
+											(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'
+												? 'bg-red-100 text-red-800'
+												: 'bg-slate-200 text-slate-700'}"
 										>
 											{mesa.estadoMesa ?? mesa.estado_mesa ?? 'Pendiente'}
 										</span>
 
-										{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' || (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
 											<button
 												type="button"
 												onclick={() => toggleBloqueo(mesa)}
-												class="inline-flex cursor-pointer items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
-												title="Desbloquear mesa"
+												class="inline-flex cursor-pointer items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100"
 											>
-												🔓 Desbloquear
+												🔓 Abrir Mesa
 											</button>
 										{:else}
 											<button
 												type="button"
 												onclick={() => toggleBloqueo(mesa)}
-												class="inline-flex cursor-pointer items-center rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
-												title="Bloquear mesa"
+												class="inline-flex cursor-pointer items-center rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700"
 											>
-												🔒 Bloquear
+												🔒 Cerrar Mesa
 											</button>
 										{/if}
 									</div>
@@ -646,7 +653,7 @@
 											>
 										{/if}
 
-										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'CERRADA' && (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
 											{#if mesaSubiendo === String(mesa.numeroMesa ?? mesa.numero_mesa)}
 												<button
 													disabled
@@ -680,8 +687,12 @@
 								</td>
 
 								<td class="px-4 py-3 text-center">
-									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-										<span class="text-xs font-bold text-slate-400">🔒 Solo Lectura</span>
+									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' || (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										<span
+											class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600"
+										>
+											🔒 Mesa Cerrada
+										</span>
 									{:else if (mesa.estadoMesa ?? mesa.estado_mesa) === 'PROCESADA'}
 										<button
 											type="button"

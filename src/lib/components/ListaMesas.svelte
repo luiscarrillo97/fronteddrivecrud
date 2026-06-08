@@ -58,11 +58,12 @@
 
 	async function subirPdf(numeroMesa: string, file: File) {
 		if (!token) return;
-		mesaSubiendo = numeroMesa;
+		const numMesaStr = String(numeroMesa);
+		mesaSubiendo = numMesaStr;
 
 		const formData = new FormData();
 		formData.append('file', file);
-		formData.append('numeroMesa', numeroMesa);
+		formData.append('numeroMesa', numMesaStr);
 
 		try {
 			const response = await fetch(
@@ -77,7 +78,7 @@
 			if (response.ok) {
 				const result = await response.json();
 				mesas = mesas.map((m) =>
-					m.numero_mesa === numeroMesa ? { ...m, archivo_drive_id: result.fileId } : m
+					String(m.numero_mesa) === numMesaStr ? { ...m, archivo_drive_id: result.fileId } : m
 				);
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
@@ -120,7 +121,7 @@
 
 			if (response.ok) {
 				mesas = mesas.map((m) =>
-					m.numero_mesa === mesaSeleccionada.numero_mesa
+					String(m.numero_mesa) === String(mesaSeleccionada.numero_mesa)
 						? {
 								...m,
 								candidato_a: votosA,
@@ -185,35 +186,26 @@
 							<td class="px-4 py-3">{mesa.local_votacion}</td>
 							<td class="px-4 py-3">{mesa.distrito}</td>
 							<td class="px-4 py-3 text-center">{mesa.numero_votantes}</td>
-							<td class="px-4 py-3"
-								><span
-									class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
-									>{mesa.estado_mesa || 'Pendiente'}</span
-								></td
-							>
+
+							<td class="px-4 py-3">
+								<span
+									class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
+									class:bg-red-100={mesa.estado_mesa === 'CERRADA' ||
+										mesa.estado_mesa === 'BLOQUEADA'}
+									class:text-red-800={mesa.estado_mesa === 'CERRADA' ||
+										mesa.estado_mesa === 'BLOQUEADA'}
+									class:bg-slate-100={mesa.estado_mesa !== 'CERRADA' &&
+										mesa.estado_mesa !== 'BLOQUEADA'}
+									class:text-slate-700={mesa.estado_mesa !== 'CERRADA' &&
+										mesa.estado_mesa !== 'BLOQUEADA'}
+								>
+									{mesa.estado_mesa || 'Pendiente'}
+								</span>
+							</td>
+
 							<td class="px-4 py-3 text-center">
-								{#if mesaSubiendo === mesa.numero_mesa}
-									<button
-										disabled
-										class="inline-flex cursor-wait items-center justify-center rounded-md bg-slate-400 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
-										>Espere...</button
-									>
-								{:else if !mesa.archivo_drive_id}
-									<label
-										class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-										>Subir PDF<input
-											type="file"
-											accept=".pdf"
-											class="hidden"
-											onchange={(e) => {
-												const file = e.currentTarget.files?.[0];
-												if (file) subirPdf(mesa.numero_mesa, file);
-												e.currentTarget.value = '';
-											}}
-										/></label
-									>
-								{:else}
-									<div class="flex flex-wrap items-center justify-center gap-2">
+								<div class="flex flex-wrap items-center justify-center gap-2">
+									{#if mesa.archivo_drive_id}
 										<button
 											type="button"
 											onclick={() =>
@@ -221,24 +213,46 @@
 											class="inline-flex cursor-pointer items-center justify-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
 											>Ver PDF</button
 										>
-										<label
-											class="inline-flex cursor-pointer items-center justify-center rounded-md bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-300"
-											>Reemplazar<input
-												type="file"
-												accept=".pdf"
-												class="hidden"
-												onchange={(e) => {
-													const file = e.currentTarget.files?.[0];
-													if (file) subirPdf(mesa.numero_mesa, file);
-													e.currentTarget.value = '';
-												}}
-											/></label
-										>
-									</div>
-								{/if}
+									{/if}
+
+									{#if mesa.estado_mesa !== 'CERRADA' && mesa.estado_mesa !== 'BLOQUEADA'}
+										{#if mesaSubiendo === String(mesa.numero_mesa)}
+											<button
+												disabled
+												class="inline-flex cursor-wait items-center justify-center rounded-md bg-slate-400 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+												>Espere...</button
+											>
+										{:else}
+											<label
+												class="inline-flex cursor-pointer items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 {mesa.archivo_drive_id
+													? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+													: ''}"
+											>
+												{mesa.archivo_drive_id ? 'Reemplazar' : 'Subir PDF'}
+												<input
+													type="file"
+													accept=".pdf"
+													class="hidden"
+													onchange={(e) => {
+														const file = e.currentTarget.files?.[0];
+														if (file) subirPdf(mesa.numero_mesa, file);
+														e.currentTarget.value = '';
+													}}
+												/>
+											</label>
+										{/if}
+									{/if}
+								</div>
 							</td>
+
 							<td class="px-4 py-3 text-center">
-								{#if mesa.estado_mesa === 'PROCESADA'}
+								{#if mesa.estado_mesa === 'CERRADA' || mesa.estado_mesa === 'BLOQUEADA'}
+									<span
+										class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600"
+									>
+										🔒 Cerrada
+									</span>
+								{:else if mesa.estado_mesa === 'PROCESADA'}
 									<button
 										type="button"
 										onclick={() => abrirModalVotos(mesa)}
