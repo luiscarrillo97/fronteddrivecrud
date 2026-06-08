@@ -13,16 +13,35 @@
 		onViewPdf: (id: string, name: string) => void;
 	} = $props();
 
-	// 🌟 ESTADOS PARA EL FILTRO INTELIGENTE
+	// 🌟 ESTADOS PARA EL FILTRO EN CASCADA (MODO NACIONAL INCLUIDO)
 	let localesRaw = $state<any[]>([]);
+	let selectedDepartamento = $state<string>(''); // 👈 ESTO FALTABA EN TU CÓDIGO
 	let selectedProvincia = $state<string>('');
 	let selectedDistrito = $state<string>('');
 	let selectedLocal = $state<string | number>('');
 	let cargandoLocales = $state(false);
 
-	// 🌟 MAGIA 1: Extrae Provincias Únicas
+	// 🌟 MAGIA 0: Extrae Departamentos Únicos
+	let departamentosDisponibles = $derived.by(() => {
+		const deptos = localesRaw
+			.map((l) => {
+				const d = l.departamento || l.Departamento || l.DEPARTAMENTO;
+				return d ? d.toString().trim().toUpperCase() : null;
+			})
+			.filter(Boolean);
+		return [...new Set(deptos)].sort();
+	});
+
+	// 🌟 MAGIA 1: Extrae Provincias (Filtradas por Departamento)
 	let provinciasDisponibles = $derived.by(() => {
-		const provincias = localesRaw
+		let filtrados = localesRaw;
+		if (selectedDepartamento) {
+			filtrados = filtrados.filter((l) => {
+				const d = l.departamento || l.Departamento || l.DEPARTAMENTO || '';
+				return d.toString().trim().toUpperCase() === selectedDepartamento;
+			});
+		}
+		const provincias = filtrados
 			.map((l) => {
 				const p = l.provincia || l.Provincia || l.PROVINCIA;
 				return p ? p.toString().trim().toUpperCase() : null;
@@ -31,14 +50,24 @@
 		return [...new Set(provincias)].sort();
 	});
 
-	// 🌟 MAGIA 2: Extrae Distritos (Filtrados por la Provincia seleccionada)
+	// 🌟 MAGIA 2: Extrae Distritos (Filtrados por Depto y Provincia)
 	let distritosDisponibles = $derived.by(() => {
 		let filtrados = localesRaw;
+		if (selectedDepartamento) {
+			filtrados = filtrados.filter(
+				(l) =>
+					(l.departamento || l.Departamento || l.DEPARTAMENTO || '')
+						.toString()
+						.trim()
+						.toUpperCase() === selectedDepartamento
+			);
+		}
 		if (selectedProvincia) {
-			filtrados = filtrados.filter((l) => {
-				const p = l.provincia || l.Provincia || l.PROVINCIA || '';
-				return p.toString().trim().toUpperCase() === selectedProvincia;
-			});
+			filtrados = filtrados.filter(
+				(l) =>
+					(l.provincia || l.Provincia || l.PROVINCIA || '').toString().trim().toUpperCase() ===
+					selectedProvincia
+			);
 		}
 
 		const distritos = filtrados
@@ -50,32 +79,33 @@
 		return [...new Set(distritos)].sort();
 	});
 
-	// 🌟 MAGIA 3: Filtra Locales (Por Provincia y Distrito)
+	// 🌟 MAGIA 3: Filtra Locales
 	let localesFiltrados = $derived.by(() => {
 		let filtrados = localesRaw;
-
+		if (selectedDepartamento) {
+			filtrados = filtrados.filter(
+				(l) =>
+					(l.departamento || l.Departamento || l.DEPARTAMENTO || '')
+						.toString()
+						.trim()
+						.toUpperCase() === selectedDepartamento
+			);
+		}
 		if (selectedProvincia) {
-			filtrados = filtrados.filter((l) => {
-				const p = l.provincia || l.Provincia || l.PROVINCIA || '';
-				return p.toString().trim().toUpperCase() === selectedProvincia;
-			});
+			filtrados = filtrados.filter(
+				(l) =>
+					(l.provincia || l.Provincia || l.PROVINCIA || '').toString().trim().toUpperCase() ===
+					selectedProvincia
+			);
 		}
-
 		if (selectedDistrito) {
-			filtrados = filtrados.filter((l) => {
-				const d = l.distrito || l.Distrito || l.DISTRITO || '';
-				return d.toString().trim().toUpperCase() === selectedDistrito;
-			});
+			filtrados = filtrados.filter(
+				(l) =>
+					(l.distrito || l.Distrito || l.DISTRITO || '').toString().trim().toUpperCase() ===
+					selectedDistrito
+			);
 		}
-
 		return filtrados;
-	});
-
-	// 🌟 NUEVO EFECTO: Limpia el colegio al cambiar de distrito de forma segura
-	$effect(() => {
-		if (selectedDistrito !== undefined) {
-			selectedLocal = '';
-		}
 	});
 
 	let mesas = $state<any[]>([]);
@@ -94,8 +124,8 @@
 	$effect(() => {
 		if (rolUsuario === 'LOCAL' && idLocalUsuario) {
 			selectedLocal = idLocalUsuario;
-		} else if (codUbigeo) {
-			cargarLocales(codUbigeo);
+		} else if (codUbigeo || rolUsuario === 'NACIONAL' || rolUsuario === 'ADMIN') {
+			cargarLocales(codUbigeo || '');
 		}
 	});
 
@@ -103,10 +133,16 @@
 		cargandoLocales = true;
 		try {
 			let prefijoUbigeo = ubigeoRaw;
-			if (rolUsuario === 'DEPARTAMENTAL' && ubigeoRaw.length >= 2) {
+
+			// 🌟 LÓGICA DE ROLES (INCLUYE NACIONAL = TODOS)
+			if (rolUsuario === 'NACIONAL' || rolUsuario === 'ADMIN') {
+				prefijoUbigeo = 'TODOS';
+			} else if (rolUsuario === 'DEPARTAMENTAL' && ubigeoRaw.length >= 2) {
 				prefijoUbigeo = ubigeoRaw.substring(0, 2);
 			} else if (rolUsuario === 'PROVINCIAL' && ubigeoRaw.length >= 4) {
 				prefijoUbigeo = ubigeoRaw.substring(0, 4);
+			} else if (!prefijoUbigeo) {
+				prefijoUbigeo = 'TODOS';
 			}
 
 			const response = await fetch(
@@ -124,7 +160,6 @@
 		}
 	}
 
-	// 2. CARGAR MESAS POR LOCAL
 	$effect(() => {
 		if (selectedLocal && token) {
 			fetchMesasPorLocal(selectedLocal, token);
@@ -141,13 +176,9 @@
 				`https://drivecrud-269414280318.europe-west1.run.app/locales/${idLocal}/mesas`,
 				{ headers: { Authorization: `Bearer ${authToken}` } }
 			);
-			if (response.ok) {
-				mesas = await response.json();
-			} else if (response.status === 404) {
-				mesas = [];
-			} else {
-				errorMesas = `Error del servidor: código ${response.status}`;
-			}
+			if (response.ok) mesas = await response.json();
+			else if (response.status === 404) mesas = [];
+			else errorMesas = `Error del servidor: código ${response.status}`;
 		} catch (err) {
 			errorMesas = 'Error de conexión al cargar las mesas.';
 		} finally {
@@ -155,10 +186,9 @@
 		}
 	}
 
-	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas
 	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
-		const numMesaStr = String(numeroMesa); // Blindaje de tipo
+		const numMesaStr = String(numeroMesa);
 		mesaSubiendo = numMesaStr;
 
 		const formData = new FormData();
@@ -168,27 +198,16 @@
 		try {
 			const response = await fetch(
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/subir-pdf',
-				{
-					method: 'POST',
-					headers: { Authorization: `Bearer ${token}` },
-					body: formData
-				}
+				{ method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
 			);
 
 			if (response.ok) {
 				const result = await response.json();
-
-				// 🌟 CORRECCIÓN AQUÍ: String() en ambos lados asegura que la mesa se encuentre
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
-						? {
-								...m,
-								archivoDriveId: result.fileId,
-								archivo_drive_id: result.fileId
-							}
+						? { ...m, archivoDriveId: result.fileId, archivo_drive_id: result.fileId }
 						: m
 				);
-
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
 				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
@@ -217,10 +236,7 @@
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
 				{
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`
-					},
+					headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
 					body: JSON.stringify({
 						numeroMesa: mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa,
 						candidatoA: votosA,
@@ -231,7 +247,6 @@
 			);
 
 			if (response.ok) {
-				// 🌟 FIX: String() para blindar el mapeo de resultados
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) ===
 					String(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
@@ -256,7 +271,6 @@
 				throw new Error('Error en el servidor al guardar.');
 			}
 		} catch (error) {
-			console.error('Error al registrar votos:', error);
 			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
 		} finally {
 			setTimeout(() => (mensajeToast = null), 3000);
@@ -279,24 +293,53 @@
 		<h2 class="mb-4 text-xl font-bold text-slate-800">Panel Operativo Zonal</h2>
 
 		<div
-			class="grid gap-4 {provinciasDisponibles.length > 1 ? 'md:grid-cols-3' : 'md:grid-cols-2'}"
+			class="grid gap-4 {departamentosDisponibles.length > 1
+				? 'md:grid-cols-2 lg:grid-cols-4'
+				: provinciasDisponibles.length > 1
+					? 'md:grid-cols-3'
+					: 'md:grid-cols-2'}"
 		>
-			{#if provinciasDisponibles.length > 1}
+			{#if departamentosDisponibles.length > 1}
 				<div>
-					<label for="provinciaSelect" class="mb-1 block text-sm font-medium text-slate-700">
-						1. Provincia
+					<label for="deptoSelect" class="mb-1 block text-sm font-medium text-slate-700">
+						1. Departamento
 					</label>
 					<select
-						id="provinciaSelect"
-						bind:value={selectedProvincia}
+						id="deptoSelect"
+						bind:value={selectedDepartamento}
 						disabled={cargandoLocales}
 						onchange={() => {
+							selectedProvincia = '';
 							selectedDistrito = '';
 							selectedLocal = '';
 						}}
 						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 					>
-						<option value="">-- Todas las provincias --</option>
+						<option value="">-- Todos --</option>
+						{#each departamentosDisponibles as depto, i (i)}
+							<option value={depto}>{depto}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
+
+			{#if provinciasDisponibles.length > 1}
+				<div>
+					<label for="provinciaSelect" class="mb-1 block text-sm font-medium text-slate-700">
+						{departamentosDisponibles.length > 1 ? '2. Provincia' : '1. Provincia'}
+					</label>
+					<select
+						id="provinciaSelect"
+						bind:value={selectedProvincia}
+						disabled={cargandoLocales ||
+							(departamentosDisponibles.length > 1 && !selectedDepartamento)}
+						onchange={() => {
+							selectedDistrito = '';
+							selectedLocal = '';
+						}}
+						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+					>
+						<option value="">-- Todas --</option>
 						{#each provinciasDisponibles as provincia, i (i)}
 							<option value={provincia}>{provincia}</option>
 						{/each}
@@ -307,7 +350,11 @@
 			{#if distritosDisponibles.length > 1}
 				<div>
 					<label for="distritoSelect" class="mb-1 block text-sm font-medium text-slate-700">
-						{provinciasDisponibles.length > 1 ? '2. Distrito' : '1. Distrito'}
+						{departamentosDisponibles.length > 1
+							? '3. Distrito'
+							: provinciasDisponibles.length > 1
+								? '2. Distrito'
+								: '1. Distrito'}
 					</label>
 					<select
 						id="distritoSelect"
@@ -316,7 +363,7 @@
 						onchange={() => (selectedLocal = '')}
 						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
 					>
-						<option value="">-- Todos los distritos --</option>
+						<option value="">-- Todos --</option>
 						{#each distritosDisponibles as distrito, i (i)}
 							<option value={distrito}>{distrito}</option>
 						{/each}
@@ -326,11 +373,7 @@
 
 			<div>
 				<label for="localSelect" class="mb-1 block text-sm font-medium text-slate-700">
-					{provinciasDisponibles.length > 1
-						? '3. Local de Votación'
-						: distritosDisponibles.length > 1
-							? '2. Local de Votación'
-							: 'Local de Votación'}
+					Local de Votación
 				</label>
 				<select
 					id="localSelect"
