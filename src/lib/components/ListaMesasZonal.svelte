@@ -222,10 +222,10 @@
 		}
 	}
 
-	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas
+	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas y capturamos condición de carrera
 	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
-		const numMesaStr = String(numeroMesa); // Blindaje de tipo
+		const numMesaStr = String(numeroMesa);
 		mesaSubiendo = numMesaStr;
 
 		const formData = new FormData();
@@ -240,8 +240,6 @@
 
 			if (response.ok) {
 				const result = await response.json();
-
-				// 🌟 CORRECCIÓN AQUÍ: String() en ambos lados asegura que la mesa se encuentre
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
 						? {
@@ -251,16 +249,21 @@
 							}
 						: m
 				);
-
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
-				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
+				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si está cerrada)
+				const errData = await response.json();
+				mensajeToast = { texto: errData.error || 'Error al subir el acta', tipo: 'error' };
+
+				if (errData.error && errData.error.includes('CERRADA')) {
+					if (selectedLocal) fetchMesasPorLocal(selectedLocal, token); // Refresca para mostrar el candado
+				}
 			}
 		} catch (error) {
 			mensajeToast = { texto: 'Error de red al subir el acta', tipo: 'error' };
 		} finally {
 			mesaSubiendo = null;
-			setTimeout(() => (mensajeToast = null), 3000);
+			setTimeout(() => (mensajeToast = null), 4000);
 		}
 	}
 
@@ -294,7 +297,6 @@
 			);
 
 			if (response.ok) {
-				// 🌟 FIX: String() para blindar el mapeo de resultados
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) ===
 					String(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
@@ -316,13 +318,20 @@
 				mesaSeleccionada = null;
 				mensajeToast = { texto: 'Resultados registrados con éxito', tipo: 'exito' };
 			} else {
-				throw new Error('Error en el servidor al guardar.');
+				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si está cerrada)
+				const errData = await response.json();
+				mensajeToast = { texto: errData.error || 'Error al guardar', tipo: 'error' };
+
+				if (errData.error && errData.error.includes('CERRADA')) {
+					showModalResultados = false;
+					if (selectedLocal) fetchMesasPorLocal(selectedLocal, token); // Refresca para mostrar el candado
+				}
 			}
 		} catch (error) {
 			console.error('Error al registrar votos:', error);
 			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
 		} finally {
-			setTimeout(() => (mensajeToast = null), 3000);
+			setTimeout(() => (mensajeToast = null), 4000);
 		}
 	}
 </script>
@@ -543,10 +552,14 @@
 								<td class="px-4 py-3">
 									<span
 										class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-										class:bg-red-100={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-										class:text-red-800={(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-										class:bg-slate-200={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
-										class:text-slate-700={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+										class:bg-red-100={(mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' ||
+											(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										class:text-red-800={(mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' ||
+											(mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										class:bg-slate-200={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'CERRADA' &&
+											(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+										class:text-slate-700={(mesa.estadoMesa ?? mesa.estado_mesa) !== 'CERRADA' &&
+											(mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
 									>
 										{mesa.estadoMesa ?? mesa.estado_mesa ?? 'Pendiente'}
 									</span>
@@ -567,7 +580,7 @@
 											>
 										{/if}
 
-										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
+										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'CERRADA' && (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
 											{#if mesaSubiendo === String(mesa.numeroMesa ?? mesa.numero_mesa)}
 												<button
 													disabled
@@ -601,8 +614,12 @@
 								</td>
 
 								<td class="px-4 py-3 text-center">
-									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
-										<span class="text-xs font-bold text-slate-400">🔒 Solo Lectura</span>
+									{#if (mesa.estadoMesa ?? mesa.estado_mesa) === 'CERRADA' || (mesa.estadoMesa ?? mesa.estado_mesa) === 'BLOQUEADA'}
+										<span
+											class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600"
+										>
+											🔒 Cerrada
+										</span>
 									{:else if (mesa.estadoMesa ?? mesa.estado_mesa) === 'PROCESADA'}
 										<button
 											type="button"
