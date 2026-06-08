@@ -75,24 +75,17 @@
 			<!-- 🚦 SEMÁFORO DE ENRUTAMIENTO POR ROLES 🚦 -->
 			<!-- ============================================== -->
 
-			{#if data.role === 'ADMIN' || data.role === 'NACIONAL' || data.role === 'SOPORTE'}
+			{#if data.role === 'ADMIN' || data.role === 'SOPORTE'}
 				<PanelAdministrativo
 					{form}
 					files={data.files}
 					token={data.token}
-					<---
-					¡ESTA
-					ES
-					LA
-					LÍNEA
-					CLAVE!
 					onViewPdf={(id, name) => {
 						viewingFileId = id;
 						modalName = name;
 					}}
 				/>
-			{:else if ['DEPARTAMENTAL', 'PROVINCIAL', 'DISTRITAL', 'LOCAL'].includes(data.role || '')}
-				<!-- 2. PANEL OPERATIVO ZONAL (El nuevo componente) -->
+			{:else if ['NACIONAL', 'DEPARTAMENTAL', 'PROVINCIAL', 'DISTRITAL', 'LOCAL'].includes(data.role || '')}
 				{#if data.token}
 					<ListaMesasZonal
 						token={data.token}
@@ -106,7 +99,6 @@
 					/>
 				{/if}
 			{:else if data.role === 'PERSONERO'}
-				<!-- 3. PANEL DE MESA NORMAL -->
 				{#if data.dni && data.token}
 					<ListaMesas
 						dni={data.dni}
@@ -118,7 +110,6 @@
 					/>
 				{/if}
 			{:else}
-				<!-- 4. ROL DESCONOCIDO (Seguridad) -->
 				<div class="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-600">
 					<h2 class="text-lg font-bold">Acceso Restringido</h2>
 					<p>Su usuario no tiene un rol válido asignado. Contacte a soporte.</p>
