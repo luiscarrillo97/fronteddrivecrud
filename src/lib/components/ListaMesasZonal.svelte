@@ -15,7 +15,7 @@
 
 	// 🌟 ESTADOS PARA EL FILTRO EN CASCADA (MODO NACIONAL INCLUIDO)
 	let localesRaw = $state<any[]>([]);
-	let selectedDepartamento = $state<string>(''); // 👈 ESTO FALTABA EN TU CÓDIGO
+	let selectedDepartamento = $state<string>('');
 	let selectedProvincia = $state<string>('');
 	let selectedDistrito = $state<string>('');
 	let selectedLocal = $state<string | number>('');
@@ -108,6 +108,13 @@
 		return filtrados;
 	});
 
+	// 🌟 NUEVO EFECTO: Limpia el colegio al cambiar de distrito de forma segura
+	$effect(() => {
+		if (selectedDistrito !== undefined) {
+			selectedLocal = '';
+		}
+	});
+
 	let mesas = $state<any[]>([]);
 	let loadingMesas = $state(false);
 	let errorMesas = $state('');
@@ -119,6 +126,12 @@
 	let totalVotantes = $state(0);
 	let mesaSubiendo = $state<string | null>(null);
 	let mensajeToast = $state<{ texto: string; tipo: 'exito' | 'error' } | null>(null);
+
+	// 🌟 ESTADOS PARA EL MODAL DEL OJITO (PERSONEROS)
+	let showModalPersoneros = $state(false);
+	let personerosAsignados = $state<any[]>([]);
+	let loadingPersoneros = $state(false);
+	let mesaPersonerosSeleccionada = $state<string>('');
 
 	// 1. INICIO Y FILTRO DE UBIGEO
 	$effect(() => {
@@ -186,9 +199,33 @@
 		}
 	}
 
+	// 🌟 FUNCIÓN PARA ABRIR EL OJITO Y BUSCAR AL PERSONERO
+	async function verPersoneros(numeroMesa: string | number) {
+		if (!token) return;
+		mesaPersonerosSeleccionada = String(numeroMesa);
+		showModalPersoneros = true;
+		loadingPersoneros = true;
+		personerosAsignados = [];
+
+		try {
+			const response = await fetch(
+				`https://drivecrud-269414280318.europe-west1.run.app/mesas/${mesaPersonerosSeleccionada}/personeros`,
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+			if (response.ok) {
+				personerosAsignados = await response.json();
+			}
+		} catch (error) {
+			console.error('Error al cargar personeros:', error);
+		} finally {
+			loadingPersoneros = false;
+		}
+	}
+
+	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas
 	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
-		const numMesaStr = String(numeroMesa);
+		const numMesaStr = String(numeroMesa); // Blindaje de tipo
 		mesaSubiendo = numMesaStr;
 
 		const formData = new FormData();
@@ -203,11 +240,18 @@
 
 			if (response.ok) {
 				const result = await response.json();
+
+				// 🌟 CORRECCIÓN AQUÍ: String() en ambos lados asegura que la mesa se encuentre
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
-						? { ...m, archivoDriveId: result.fileId, archivo_drive_id: result.fileId }
+						? {
+								...m,
+								archivoDriveId: result.fileId,
+								archivo_drive_id: result.fileId
+							}
 						: m
 				);
+
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
 				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
@@ -236,7 +280,10 @@
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
 				{
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`
+					},
 					body: JSON.stringify({
 						numeroMesa: mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa,
 						candidatoA: votosA,
@@ -247,6 +294,7 @@
 			);
 
 			if (response.ok) {
+				// 🌟 FIX: String() para blindar el mapeo de resultados
 				mesas = mesas.map((m) =>
 					String(m.numeroMesa ?? m.numero_mesa) ===
 					String(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
@@ -271,6 +319,7 @@
 				throw new Error('Error en el servidor al guardar.');
 			}
 		} catch (error) {
+			console.error('Error al registrar votos:', error);
 			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
 		} finally {
 			setTimeout(() => (mensajeToast = null), 3000);
@@ -431,7 +480,7 @@
 						<tr>
 							<th class="px-4 py-3">Mesa</th>
 							<th class="px-4 py-3 text-center">Votantes</th>
-							<th class="px-4 py-3 text-center">Personeros</th> <th class="px-4 py-3">Estado</th>
+							<th class="px-4 py-3 text-center">Personeros</th>
 							<th class="px-4 py-3">Estado</th>
 							<th class="px-4 py-3 text-center">ACTA / PDF</th>
 							<th class="px-4 py-3 text-center">RESULTADOS</th>
@@ -446,13 +495,42 @@
 								<td class="px-4 py-3 text-center"
 									>{mesa.numeroVotantes ?? mesa.numero_votantes ?? 0}</td
 								>
+
 								<td class="px-4 py-3 text-center">
 									{#if (mesa.cantidad_personeros ?? mesa.cantidadPersoneros ?? 0) > 0}
-										<span
-											class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800"
-										>
-											1 Asignado
-										</span>
+										<div class="flex items-center justify-center gap-2">
+											<span
+												class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800"
+											>
+												1 Asignado
+											</span>
+											<button
+												type="button"
+												onclick={() => verPersoneros(mesa.numeroMesa ?? mesa.numero_mesa)}
+												class="rounded-full bg-blue-50 p-1.5 text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800"
+												title="Ver datos del personero"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="2"
+													stroke="currentColor"
+													class="h-4 w-4"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+													/>
+												</svg>
+											</button>
+										</div>
 									{:else}
 										<span
 											class="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800"
@@ -461,6 +539,7 @@
 										</span>
 									{/if}
 								</td>
+
 								<td class="px-4 py-3">
 									<span
 										class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -599,6 +678,54 @@
 					class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 					>Guardar</button
 				>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showModalPersoneros}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm transition-all"
+	>
+		<div class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+			<div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+				<h3 class="text-lg font-bold text-slate-800">
+					👤 Personero Mesa {mesaPersonerosSeleccionada}
+				</h3>
+			</div>
+
+			<div class="min-h-[80px]">
+				{#if loadingPersoneros}
+					<div class="flex items-center justify-center py-4">
+						<span class="animate-pulse text-sm font-medium text-slate-500">Buscando datos...</span>
+					</div>
+				{:else if personerosAsignados.length === 0}
+					<div class="rounded-md bg-amber-50 p-3 text-sm text-amber-700">
+						No se encontraron los datos de este personero.
+					</div>
+				{:else}
+					<ul class="divide-y divide-slate-100">
+						{#each localesFiltrados as local, i (i)}
+							<option value={local.id_local || local.idLocal || local.IdLocal || local.ID_LOCAL}>
+								{local.nom_local ||
+									local.nomLocal ||
+									local.NomLocal ||
+									local.NOM_LOCAL ||
+									'Colegio sin nombre'}
+							</option>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+
+			<div class="mt-4 flex justify-end pt-2">
+				<button
+					type="button"
+					onclick={() => (showModalPersoneros = false)}
+					class="rounded-md bg-slate-800 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700"
+				>
+					Cerrar
+				</button>
 			</div>
 		</div>
 	</div>
