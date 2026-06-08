@@ -82,8 +82,14 @@
 				);
 				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
 			} else {
-				mensajeToast = { texto: 'Error al subir el acta', tipo: 'error' };
-			}
+                // 🛡️ LEEMOS EL ERROR DEL SERVIDOR
+                const errData = await response.json();
+                mensajeToast = { texto: errData.error || 'Error al subir el acta', tipo: 'error' };
+                
+                // 🔄 SI ESTÁ CERRADA, RECARGAMOS LA TABLA
+                if (errData.error && errData.error.includes('CERRADA')) {
+                    fetchMesas(dni, token); 
+                }
 		} catch (error) {
 			mensajeToast = { texto: 'Error de red al subir el acta', tipo: 'error' };
 		} finally {
@@ -102,42 +108,49 @@
 		showModalResultados = true;
 	}
 
-	async function guardarResultados() {
-		if (!token || !mesaSeleccionada) return;
-		try {
-			const response = await fetch(
-				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-					body: JSON.stringify({
-						numeroMesa: mesaSeleccionada.numero_mesa,
-						candidatoA: votosA,
-						candidatoB: votosB,
-						numeroVotantes: totalVotantes
-					})
-				}
-			);
+async function guardarResultados() {
+        if (!token || !mesaSeleccionada) return;
+        try {
+            const response = await fetch(
+                'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        numeroMesa: mesaSeleccionada.numero_mesa,
+                        candidatoA: votosA,
+                        candidatoB: votosB,
+                        numeroVotantes: totalVotantes
+                    })
+                }
+            );
 
-			if (response.ok) {
-				mesas = mesas.map((m) =>
-					String(m.numero_mesa) === String(mesaSeleccionada.numero_mesa)
-						? {
-								...m,
-								candidato_a: votosA,
-								candidato_b: votosB,
-								numero_votantes: totalVotantes,
-								estado_mesa: 'PROCESADA'
-							}
-						: m
-				);
-				showModalResultados = false;
-				mesaSeleccionada = null;
-			}
-		} catch (error) {
-			console.error('Error al registrar votos:', error);
-		}
-	}
+            if (response.ok) {
+                mesas = mesas.map((m) =>
+                    String(m.numero_mesa) === String(mesaSeleccionada.numero_mesa)
+                        ? { ...m, candidato_a: votosA, candidato_b: votosB, numero_votantes: totalVotantes, estado_mesa: 'PROCESADA' }
+                        : m
+                );
+                showModalResultados = false;
+                mesaSeleccionada = null;
+                mensajeToast = { texto: 'Resultados guardados con éxito', tipo: 'exito' };
+            } else {
+                // 🛡️ LEEMOS EL ERROR DEL SERVIDOR
+                const errData = await response.json();
+                mensajeToast = { texto: errData.error || 'Error al guardar', tipo: 'error' };
+                
+                // 🔄 SI ESTÁ CERRADA, RECARGAMOS LA TABLA PARA MOSTRAR EL CANDADO
+                if (errData.error && errData.error.includes('CERRADA')) {
+                    showModalResultados = false;
+                    fetchMesas(dni, token); 
+                }
+            }
+        } catch (error) {
+            mensajeToast = { texto: 'Error de conexión', tipo: 'error' };
+        } finally {
+            setTimeout(() => (mensajeToast = null), 4000);
+        }
+    }
 </script>
 
 {#if mensajeToast}
