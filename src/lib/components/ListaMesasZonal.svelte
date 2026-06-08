@@ -15,7 +15,7 @@
 
 	// 🌟 ESTADOS PARA EL FILTRO INTELIGENTE
 	let localesRaw = $state<any[]>([]);
-	let selectedProvincia = $state<string>(''); // 👈 ¡Nuevo estado!
+	let selectedProvincia = $state<string>('');
 	let selectedDistrito = $state<string>('');
 	let selectedLocal = $state<string | number>('');
 	let cargandoLocales = $state(false);
@@ -34,7 +34,6 @@
 	// 🌟 MAGIA 2: Extrae Distritos (Filtrados por la Provincia seleccionada)
 	let distritosDisponibles = $derived.by(() => {
 		let filtrados = localesRaw;
-		// Si eligió una provincia, filtramos los datos primero
 		if (selectedProvincia) {
 			filtrados = filtrados.filter((l) => {
 				const p = l.provincia || l.Provincia || l.PROVINCIA || '';
@@ -42,7 +41,6 @@
 			});
 		}
 
-		// Ahora extraemos los distritos de esos datos filtrados
 		const distritos = filtrados
 			.map((l) => {
 				const d = l.distrito || l.Distrito || l.DISTRITO;
@@ -104,9 +102,7 @@
 	async function cargarLocales(ubigeoRaw: string) {
 		cargandoLocales = true;
 		try {
-			let prefijoUbigeo = ubigeoRaw; // Por defecto usa los 6 (Distrital)
-
-			// Cortamos el ubigeo según el nivel de acceso
+			let prefijoUbigeo = ubigeoRaw;
 			if (rolUsuario === 'DEPARTAMENTAL' && ubigeoRaw.length >= 2) {
 				prefijoUbigeo = ubigeoRaw.substring(0, 2);
 			} else if (rolUsuario === 'PROVINCIAL' && ubigeoRaw.length >= 4) {
@@ -117,7 +113,7 @@
 				`https://drivecrud-269414280318.europe-west1.run.app/locales/zonal/${prefijoUbigeo}`
 			);
 			if (response.ok) {
-				localesRaw = await response.json(); // Guardamos en localesRaw
+				localesRaw = await response.json();
 			} else {
 				localesRaw = [];
 			}
@@ -159,12 +155,15 @@
 		}
 	}
 
-	async function subirPdf(numeroMesa: string, file: File) {
+	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas
+	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
-		mesaSubiendo = numeroMesa;
+		const numMesaStr = String(numeroMesa); // Blindaje de tipo
+		mesaSubiendo = numMesaStr;
+
 		const formData = new FormData();
 		formData.append('file', file);
-		formData.append('numeroMesa', numeroMesa);
+		formData.append('numeroMesa', numMesaStr);
 
 		try {
 			const response = await fetch(
@@ -179,9 +178,9 @@
 			if (response.ok) {
 				const result = await response.json();
 
-				// 🌟 CORRECCIÓN AQUÍ: Actualizamos la memoria blindando ambos nombres
+				// 🌟 CORRECCIÓN AQUÍ: String() en ambos lados asegura que la mesa se encuentre
 				mesas = mesas.map((m) =>
-					(m.numeroMesa ?? m.numero_mesa) === numeroMesa
+					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
 						? {
 								...m,
 								archivoDriveId: result.fileId,
@@ -202,65 +201,11 @@
 		}
 	}
 
-	async function guardarResultados() {
-		if (!token || !mesaSeleccionada) return;
-
-		try {
-			const response = await fetch(
-				'https://drivecrud-269414280318.europe-west1.run.app/mesas/registrar-acta',
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${token}`
-					},
-					body: JSON.stringify({
-						numeroMesa: mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa,
-						candidatoA: votosA,
-						candidatoB: votosB,
-						numeroVotantes: totalVotantes
-					})
-				}
-			);
-
-			if (response.ok) {
-				// 🌟 CORRECCIÓN AQUÍ: Actualizamos la memoria blindando ambos nombres
-				mesas = mesas.map((m) =>
-					(m.numeroMesa ?? m.numero_mesa) ===
-					(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
-						? {
-								...m,
-								candidatoA: votosA,
-								candidato_a: votosA,
-								candidatoB: votosB,
-								candidato_b: votosB,
-								numeroVotantes: totalVotantes,
-								numero_votantes: totalVotantes,
-								estadoMesa: 'PROCESADA',
-								estado_mesa: 'PROCESADA'
-							}
-						: m
-				);
-
-				showModalResultados = false;
-				mesaSeleccionada = null;
-				mensajeToast = { texto: 'Resultados registrados con éxito', tipo: 'exito' };
-			} else {
-				throw new Error('Error en el servidor al guardar.');
-			}
-		} catch (error) {
-			console.error('Error al registrar votos:', error);
-			mensajeToast = { texto: 'Error al registrar votos', tipo: 'error' };
-		} finally {
-			setTimeout(() => (mensajeToast = null), 3000);
-		}
-	}
-
 	function abrirModalVotos(mesa: any) {
 		mesaSeleccionada = mesa;
-		votosA = mesa.candidatoA || mesa.candidato_a || 0;
-		votosB = mesa.candidatoB || mesa.candidato_b || 0;
-		totalVotantes = mesa.numeroVotantes || mesa.numero_votantes || 0;
+		votosA = mesa.candidatoA ?? mesa.candidato_a ?? 0;
+		votosB = mesa.candidatoB ?? mesa.candidato_b ?? 0;
+		totalVotantes = mesa.numeroVotantes ?? mesa.numero_votantes ?? 0;
 		showModalResultados = true;
 	}
 
@@ -286,15 +231,20 @@
 			);
 
 			if (response.ok) {
+				// 🌟 FIX: String() para blindar el mapeo de resultados
 				mesas = mesas.map((m) =>
-					(m.numeroMesa ?? m.numero_mesa) ===
-					(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
+					String(m.numeroMesa ?? m.numero_mesa) ===
+					String(mesaSeleccionada.numeroMesa ?? mesaSeleccionada.numero_mesa)
 						? {
 								...m,
 								candidatoA: votosA,
+								candidato_a: votosA,
 								candidatoB: votosB,
+								candidato_b: votosB,
 								numeroVotantes: totalVotantes,
-								estadoMesa: 'PROCESADA'
+								numero_votantes: totalVotantes,
+								estadoMesa: 'PROCESADA',
+								estado_mesa: 'PROCESADA'
 							}
 						: m
 				);
@@ -341,8 +291,8 @@
 						bind:value={selectedProvincia}
 						disabled={cargandoLocales}
 						onchange={() => {
-							selectedDistrito = ''; // Reinicia el distrito
-							selectedLocal = ''; // Reinicia el local
+							selectedDistrito = '';
+							selectedLocal = '';
 						}}
 						class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 					>
@@ -480,7 +430,7 @@
 										{/if}
 
 										{#if (mesa.estadoMesa ?? mesa.estado_mesa) !== 'BLOQUEADA'}
-											{#if mesaSubiendo === (mesa.numeroMesa ?? mesa.numero_mesa)}
+											{#if mesaSubiendo === String(mesa.numeroMesa ?? mesa.numero_mesa)}
 												<button
 													disabled
 													class="inline-flex cursor-wait items-center rounded-md bg-slate-400 px-3 py-1 text-xs font-semibold text-white"
