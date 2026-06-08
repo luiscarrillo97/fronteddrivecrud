@@ -431,6 +431,7 @@
 						<tr>
 							<th class="px-4 py-3">Mesa</th>
 							<th class="px-4 py-3 text-center">Votantes</th>
+							<th class="px-4 py-3 text-center">Personeros</th> <th class="px-4 py-3">Estado</th>
 							<th class="px-4 py-3">Estado</th>
 							<th class="px-4 py-3 text-center">ACTA / PDF</th>
 							<th class="px-4 py-3 text-center">RESULTADOS</th>
@@ -445,6 +446,21 @@
 								<td class="px-4 py-3 text-center"
 									>{mesa.numeroVotantes ?? mesa.numero_votantes ?? 0}</td
 								>
+								<td class="px-4 py-3 text-center">
+									{#if (mesa.cantidad_personeros ?? mesa.cantidadPersoneros ?? 0) > 0}
+										<span
+											class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800"
+										>
+											1 Asignado
+										</span>
+									{:else}
+										<span
+											class="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800"
+										>
+											0 Asignados
+										</span>
+									{/if}
+								</td>
 								<td class="px-4 py-3">
 									<span
 										class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
