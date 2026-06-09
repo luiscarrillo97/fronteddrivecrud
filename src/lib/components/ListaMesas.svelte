@@ -55,7 +55,6 @@
 			loading = false;
 		}
 	}
-
 	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
 		const numMesaStr = String(numeroMesa);
@@ -77,25 +76,28 @@
 
 			if (response.ok) {
 				const result = await response.json();
+
+				// 🔥 SOLUCIÓN: Modificamos el estado local instantáneamente en memoria
 				mesas = mesas.map((m) =>
 					String(m.numero_mesa ?? m.numeroMesa) === numMesaStr
 						? {
 								...m,
 								archivo_drive_id: result.fileId,
 								archivoDriveId: result.fileId,
-								estado_mesa: 'CERRADA', // 👈 ¡MESA CERRADA AUTOMÁTICAMENTE!
+								estado_mesa: 'CERRADA', // 👈 Cierre instantáneo
 								estadoMesa: 'CERRADA'
 							}
 						: m
 				);
+
 				mensajeToast = { texto: 'Acta subida y mesa cerrada con éxito', tipo: 'exito' };
 			} else {
-				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si está cerrada)
+				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si ya estaba cerrada)
 				const errData = await response.json();
 				mensajeToast = { texto: errData.error || 'Error al subir el acta', tipo: 'error' };
 
 				if (errData.error && errData.error.includes('CERRADA')) {
-					fetchMesas(dni, token); // Refresca para mostrar el candado
+					fetchMesas(dni, token); // 👈 Solo usamos fetchMesas aquí
 				}
 			}
 		} catch (error) {

@@ -222,7 +222,6 @@
 		}
 	}
 
-	// 🌟 FIX: Forzamos numeroMesa como string para igualdades perfectas y capturamos condición de carrera
 	async function subirPdf(numeroMesa: string | number, file: File) {
 		if (!token) return;
 		const numMesaStr = String(numeroMesa);
@@ -235,35 +234,46 @@
 		try {
 			const response = await fetch(
 				'https://drivecrud-269414280318.europe-west1.run.app/mesas/subir-pdf',
-				{ method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
+				{
+					method: 'POST',
+					headers: { Authorization: `Bearer ${token}` },
+					body: formData
+				}
 			);
 
 			if (response.ok) {
 				const result = await response.json();
+
+				// 🔥 SOLUCIÓN: Modificamos el estado local instantáneamente en memoria
 				mesas = mesas.map((m) =>
-					String(m.numeroMesa ?? m.numero_mesa) === numMesaStr
+					String(m.numero_mesa ?? m.numeroMesa) === numMesaStr
 						? {
 								...m,
+								archivo_drive_id: result.fileId,
 								archivoDriveId: result.fileId,
-								archivo_drive_id: result.fileId
+								estado_mesa: 'CERRADA', // 👈 Cierre instantáneo
+								estadoMesa: 'CERRADA'
 							}
 						: m
 				);
-				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
+
+				mensajeToast = { texto: 'Acta subida y mesa cerrada con éxito', tipo: 'exito' };
 			} else {
-				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si está cerrada)
+				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si ya estaba cerrada)
 				const errData = await response.json();
 				mensajeToast = { texto: errData.error || 'Error al subir el acta', tipo: 'error' };
 
 				if (errData.error && errData.error.includes('CERRADA')) {
-					if (selectedLocal) fetchMesasPorLocal(selectedLocal, token); // Refresca para mostrar el candado
+					fetchMesas(dni, token); // 👈 Solo usamos fetchMesas aquí
 				}
 			}
 		} catch (error) {
 			mensajeToast = { texto: 'Error de red al subir el acta', tipo: 'error' };
 		} finally {
 			mesaSubiendo = null;
-			setTimeout(() => (mensajeToast = null), 4000);
+			setTimeout(() => {
+				mensajeToast = null;
+			}, 4000);
 		}
 	}
 
