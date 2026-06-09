@@ -78,9 +78,17 @@
 			if (response.ok) {
 				const result = await response.json();
 				mesas = mesas.map((m) =>
-					String(m.numero_mesa) === numMesaStr ? { ...m, archivo_drive_id: result.fileId } : m
+					String(m.numero_mesa ?? m.numeroMesa) === numMesaStr
+						? {
+								...m,
+								archivo_drive_id: result.fileId,
+								archivoDriveId: result.fileId,
+								estado_mesa: 'CERRADA', // 👈 ¡MESA CERRADA AUTOMÁTICAMENTE!
+								estadoMesa: 'CERRADA'
+							}
+						: m
 				);
-				mensajeToast = { texto: 'Guardado de acta exitoso', tipo: 'exito' };
+				mensajeToast = { texto: 'Acta subida y mesa cerrada con éxito', tipo: 'exito' };
 			} else {
 				// 🛡️ CAPTURAMOS EL ERROR DEL SERVIDOR (Si está cerrada)
 				const errData = await response.json();
